@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { AppStep, Product, ProductSku, PlacementOption, TshirtColor, ShippingAddress } from "@/types";
 import { PRODUCTS } from "@/lib/catalog";
 
@@ -48,72 +49,111 @@ const defaultSku = defaultProduct.skus[0];
 const defaultPlacement = defaultProduct.availablePlacements[0];
 const defaultColor = defaultProduct.colorOptions?.[0] ?? null;
 
-export const useAppStore = create<AppState>((set) => ({
-  currentStep: "design",
-  isGenerating: false,
-  generatedImageUrl: null,
-  noBgImageUrl: null,
-  pastDesigns: [],
-  selectedProduct: defaultProduct,
-  selectedSku: defaultSku,
-  selectedPlacement: defaultPlacement,
-  selectedColor: defaultColor,
-  canvasDataUrl: null,
-  designDataUrl: null,
-  designUrl: null,
-  mockupUrl: null,
-  designDimensions: null,
-  shippingAddress: null,
-  orderResult: null,
-  error: null,
+// Safe localStorage wrapper — silently drops writes if quota is exceeded
+const safeStorage = {
+  ...createJSONStorage(() => localStorage),
+  setItem: (name: string, value: string) => {
+    try {
+      localStorage.setItem(name, value);
+    } catch {
+      // Quota exceeded — trim oldest design and retry once
+      try {
+        const raw = localStorage.getItem(name);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.state?.pastDesigns?.length > 1) {
+            parsed.state.pastDesigns.pop();
+            localStorage.setItem(name, JSON.stringify(parsed));
+          }
+        }
+      } catch {
+        // Give up silently — images just won't persist this session
+      }
+    }
+  },
+};
 
-  setStep: (step) => set({ currentStep: step }),
-  setGenerating: (v) => set({ isGenerating: v }),
-  setGeneratedImage: (url) => set({ generatedImageUrl: url }),
-  setNoBgImage: (url) => set({ noBgImageUrl: url }),
-  addPastDesign: (url) => set((s) => ({ pastDesigns: [url, ...s.pastDesigns].slice(0, 20) })),
-
-  setProduct: (p) =>
-    set({
-      selectedProduct: p,
-      selectedSku: p.skus[0],
-      selectedPlacement: p.availablePlacements[0],
-      selectedColor: p.colorOptions?.[0] ?? null,
-    }),
-
-  setSku: (s) => set({ selectedSku: s }),
-  setPlacement: (p) => set({ selectedPlacement: p }),
-
-  setColor: (c) =>
-    set((state) => {
-      const size = state.selectedSku.size;
-      const matchingSku = state.selectedProduct.skus.find(
-        (s) => s.color === c.name && s.size === size
-      ) ?? state.selectedProduct.skus.find((s) => s.color === c.name);
-      return {
-        selectedColor: c,
-        ...(matchingSku ? { selectedSku: matchingSku } : {}),
-      };
-    }),
-  setCanvasDataUrl: (url) => set({ canvasDataUrl: url }),
-  setDesignDataUrl: (url) => set({ designDataUrl: url }),
-  setDesignUrl: (url) => set({ designUrl: url }),
-  setMockupUrl: (url) => set({ mockupUrl: url }),
-  setDesignDimensions: (d) => set({ designDimensions: d }),
-  setShippingAddress: (addr) => set({ shippingAddress: addr }),
-  setOrderResult: (r) => set({ orderResult: r }),
-  setError: (msg) => set({ error: msg }),
-
-  resetDesign: () =>
-    set({
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      currentStep: "design",
+      isGenerating: false,
       generatedImageUrl: null,
       noBgImageUrl: null,
+      pastDesigns: [],
+      selectedProduct: defaultProduct,
+      selectedSku: defaultSku,
+      selectedPlacement: defaultPlacement,
+      selectedColor: defaultColor,
       canvasDataUrl: null,
       designDataUrl: null,
       designUrl: null,
       mockupUrl: null,
       designDimensions: null,
-      currentStep: "design",
+      shippingAddress: null,
+      orderResult: null,
       error: null,
+
+      setStep: (step) => set({ currentStep: step }),
+      setGenerating: (v) => set({ isGenerating: v }),
+      setGeneratedImage: (url) => set({ generatedImageUrl: url }),
+      setNoBgImage: (url) => set({ noBgImageUrl: url }),
+      addPastDesign: (url) => set((s) => ({ pastDesigns: [url, ...s.pastDesigns].slice(0, 5) })),
+
+      setProduct: (p) =>
+        set({
+          selectedProduct: p,
+          selectedSku: p.skus[0],
+          selectedPlacement: p.availablePlacements[0],
+          selectedColor: p.colorOptions?.[0] ?? null,
+        }),
+
+      setSku: (s) => set({ selectedSku: s }),
+      setPlacement: (p) => set({ selectedPlacement: p }),
+
+      setColor: (c) =>
+        set((state) => {
+          const size = state.selectedSku.size;
+          const matchingSku = state.selectedProduct.skus.find(
+            (s) => s.color === c.name && s.size === size
+          ) ?? state.selectedProduct.skus.find((s) => s.color === c.name);
+          return {
+            selectedColor: c,
+            ...(matchingSku ? { selectedSku: matchingSku } : {}),
+          };
+        }),
+
+      setCanvasDataUrl: (url) => set({ canvasDataUrl: url }),
+      setDesignDataUrl: (url) => set({ designDataUrl: url }),
+      setDesignUrl: (url) => set({ designUrl: url }),
+      setMockupUrl: (url) => set({ mockupUrl: url }),
+      setDesignDimensions: (d) => set({ designDimensions: d }),
+      setShippingAddress: (addr) => set({ shippingAddress: addr }),
+      setOrderResult: (r) => set({ orderResult: r }),
+      setError: (msg) => set({ error: msg }),
+
+      resetDesign: () =>
+        set({
+          generatedImageUrl: null,
+          noBgImageUrl: null,
+          canvasDataUrl: null,
+          designDataUrl: null,
+          designUrl: null,
+          mockupUrl: null,
+          designDimensions: null,
+          currentStep: "design",
+          error: null,
+        }),
     }),
-}));
+    {
+      name: "qikink-store",
+      storage: safeStorage,
+      // Only persist the designs gallery and current design — skip transient UI state
+      partialize: (s) => ({
+        pastDesigns: s.pastDesigns,
+        generatedImageUrl: s.generatedImageUrl,
+        noBgImageUrl: s.noBgImageUrl,
+      }),
+    }
+  )
+);
