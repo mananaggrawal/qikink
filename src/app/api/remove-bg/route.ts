@@ -13,36 +13,23 @@ export async function POST(req: Request) {
     return Response.json({ error: "imageUrl is required" }, { status: 400 });
   }
 
-  const apiKey = process.env.REMOVE_BG_API_KEY;
-  if (!apiKey) {
-    return Response.json({ error: "REMOVE_BG_API_KEY is not configured" }, { status: 500 });
-  }
-
   try {
-    // Pass as public URL or base64 depending on input type
-    const body = imageUrl.startsWith("data:")
-      ? new URLSearchParams({ image_file_b64: imageUrl.split(",")[1], size: "auto", format: "png" })
-      : new URLSearchParams({ image_url: imageUrl, size: "auto", format: "png" });
-
-    const res = await fetch("https://api.remove.bg/v1.0/removebg", {
-      method: "POST",
-      headers: { "X-Api-Key": apiKey, "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      return Response.json({ error: `remove.bg error: ${res.status} ${text}` }, { status: res.status });
-    }
-
-    const buffer = await res.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString("base64");
-
-    const result = await cloudinary.uploader.upload(`data:image/png;base64,${base64}`, {
+    // Upload the image (or re-use if already a Cloudinary URL from the same cloud)
+    const uploadResult = await cloudinary.uploader.upload(imageUrl, {
       folder: "qikink-nobg",
     });
 
-    return Response.json({ dataUrl: result.secure_url });
+    // Apply background removal as an eager transformation — blocks until done
+    const processed = await cloudinary.uploader.explicit(uploadResult.public_id, {
+      type: "upload",
+      eager: [{ effect: "background_removal", format: "png" }],
+      eager_async: false,
+    });
+
+    const bgRemovedUrl = processed.eager?.[0]?.secure_url;
+    if (!bgRemovedUrl) throw new Error("Background removal produced no output");
+
+    return Response.json({ dataUrl: bgRemovedUrl });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Background removal failed";
     return Response.json({ error: msg }, { status: 500 });
