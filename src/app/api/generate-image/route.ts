@@ -38,9 +38,12 @@ export async function POST(req: Request) {
 
     const result = await cloudinary.uploader.upload(`data:${mimeType};base64,${base64}`, {
       folder: "qikink-generated",
+      eager: [{ effect: "vectorize", format: "png" }],
+      eager_async: false,
     });
 
-    return Response.json({ imageUrl: result.secure_url });
+    const imageUrl = result.eager?.[0]?.secure_url ?? result.secure_url;
+    return Response.json({ imageUrl });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Image generation failed";
     return Response.json({ error: msg }, { status: 500 });

@@ -103,7 +103,7 @@ export function OrderForm() {
           ← Back to Design
         </Button>
         <Button size="lg" onClick={handleSubmit} loading={isProcessing} className="flex-1">
-          {isProcessing ? "Processing…" : "Pay with Razorpay →"}
+          {isProcessing ? "Placing Order…" : "Place Order →"}
         </Button>
       </div>
 
