@@ -1,4 +1,11 @@
 import { GoogleGenAI, Modality } from "@google/genai";
+import { v2 as cloudinary } from "cloudinary";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
 
 export async function POST(req: Request) {
   const { prompt } = await req.json();
@@ -28,7 +35,12 @@ export async function POST(req: Request) {
     }
 
     const { data: base64, mimeType = "image/png" } = imagePart.inlineData;
-    return Response.json({ imageUrl: `data:${mimeType};base64,${base64}` });
+
+    const result = await cloudinary.uploader.upload(`data:${mimeType};base64,${base64}`, {
+      folder: "qikink-generated",
+    });
+
+    return Response.json({ imageUrl: result.secure_url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Image generation failed";
     return Response.json({ error: msg }, { status: 500 });
