@@ -25,6 +25,7 @@ export function DesignStudio() {
     isGenerating,
     setGenerating,
     setGeneratedImage,
+    setNoBgImage,
     addPastDesign,
     setStep,
     setDesignUrl,
@@ -225,9 +226,10 @@ export function DesignStudio() {
             Past Designs
           </p>
           <ImageGallery
-            selectedUrl={generatedImageUrl}
+            selectedUrl={displayUrl}
             onSelect={(url) => {
               setGeneratedImage(url);
+              setNoBgImage(null);
             }}
           />
         </div>
