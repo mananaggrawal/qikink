@@ -49,29 +49,35 @@ const defaultSku = defaultProduct.skus[0];
 const defaultPlacement = defaultProduct.availablePlacements[0];
 const defaultColor = defaultProduct.colorOptions?.[0] ?? null;
 
-// Safe localStorage wrapper — silently drops writes if quota is exceeded
-const safeStorage = {
-  ...createJSONStorage(() => localStorage),
-  setItem: (name: string, value: string) => {
-    try {
-      localStorage.setItem(name, value);
-    } catch {
-      // Quota exceeded — trim oldest design and retry once
+// Safe localStorage wrapper — only runs on client, silently drops writes if quota is exceeded
+const safeStorage = createJSONStorage<AppState>(() => {
+  if (typeof window === "undefined") return sessionStorage; // SSR fallback (never actually written to)
+  return {
+    getItem: (key) => {
+      try { return localStorage.getItem(key); } catch { return null; }
+    },
+    setItem: (key, value) => {
       try {
-        const raw = localStorage.getItem(name);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.state?.pastDesigns?.length > 1) {
-            parsed.state.pastDesigns.pop();
-            localStorage.setItem(name, JSON.stringify(parsed));
-          }
-        }
+        localStorage.setItem(key, value);
       } catch {
-        // Give up silently — images just won't persist this session
+        // Quota exceeded — drop oldest design and retry once
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.state?.pastDesigns?.length > 1) {
+              parsed.state.pastDesigns.pop();
+              localStorage.setItem(key, JSON.stringify(parsed));
+            }
+          }
+        } catch { /* give up silently */ }
       }
-    }
-  },
-};
+    },
+    removeItem: (key) => {
+      try { localStorage.removeItem(key); } catch { /* ignore */ }
+    },
+  };
+});
 
 export const useAppStore = create<AppState>()(
   persist(
