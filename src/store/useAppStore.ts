@@ -49,9 +49,15 @@ const defaultSku = defaultProduct.skus[0];
 const defaultPlacement = defaultProduct.availablePlacements[0];
 const defaultColor = defaultProduct.colorOptions?.[0] ?? null;
 
-// Safe localStorage wrapper — only runs on client, silently drops writes if quota is exceeded
+const noopStorage = {
+  getItem: (_key: string) => null,
+  setItem: (_key: string, _value: string) => {},
+  removeItem: (_key: string) => {},
+};
+
+// Safe localStorage wrapper — noops on SSR, silently drops writes if quota exceeded on client
 const safeStorage = createJSONStorage<AppState>(() => {
-  if (typeof window === "undefined") return sessionStorage; // SSR fallback (never actually written to)
+  if (typeof window === "undefined") return noopStorage;
   return {
     getItem: (key) => {
       try { return localStorage.getItem(key); } catch { return null; }
@@ -60,7 +66,6 @@ const safeStorage = createJSONStorage<AppState>(() => {
       try {
         localStorage.setItem(key, value);
       } catch {
-        // Quota exceeded — drop oldest design and retry once
         try {
           const raw = localStorage.getItem(key);
           if (raw) {
