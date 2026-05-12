@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback } from "react";
 import { useMockupEditor } from "@/hooks/useMockupEditor";
 import { useAppStore } from "@/store/useAppStore";
+import { useDesignPersistence } from "@/hooks/useDesignPersistence";
 import { ProductSelector } from "@/components/editor/ProductSelector";
 import { ColorSelector } from "@/components/editor/ColorSelector";
 import { EditorToolbar } from "@/components/editor/EditorToolbar";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 const CANVAS_SIZE = 560;
 
 export function DesignStudio() {
+  useDesignPersistence();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
