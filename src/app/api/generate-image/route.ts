@@ -1,5 +1,13 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { v2 as cloudinary } from "cloudinary";
+import { promisify } from "util";
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const potrace = require("potrace");
+const posterize = promisify(potrace.posterize) as (
+  image: Buffer,
+  options: Record<string, unknown>
+) => Promise<string>;
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
@@ -35,9 +43,20 @@ export async function POST(req: Request) {
     }
 
     const { data: base64, mimeType = "image/png" } = imagePart.inlineData;
+    const imageBuffer = Buffer.from(base64, "base64");
 
-    const result = await cloudinary.uploader.upload(`data:${mimeType};base64,${base64}`, {
+    // Vectorize with potrace posterize (handles multi-color flat artwork)
+    let uploadData: string = `data:${mimeType};base64,${base64}`;
+    try {
+      const svg = await posterize(imageBuffer, { steps: 4, background: "#ffffff" }) as string;
+      uploadData = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+    } catch {
+      // Fall back to original raster if vectorization fails
+    }
+
+    const result = await cloudinary.uploader.upload(uploadData, {
       folder: "qikink-generated",
+      resource_type: "image",
     });
 
     return Response.json({ imageUrl: result.secure_url });

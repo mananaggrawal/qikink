@@ -43,7 +43,7 @@ export function useQikinkOrder() {
             sku: selectedSku.value,
             designs: [
               {
-                design_code: `design${Date.now()}`,
+                design_code: `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
                 width_inches: designDimensions ? String(designDimensions.widthInches) : "10",
                 height_inches: designDimensions ? String(designDimensions.heightInches) : "10",
                 placement_sku: selectedPlacement.value,
