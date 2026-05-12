@@ -1,11 +1,7 @@
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
 
-export async function getQikinkToken(): Promise<string> {
-  if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
-    return cachedToken;
-  }
-
+async function fetchFreshToken(): Promise<string> {
   const apiUrl = process.env.QIKINK_API_URL ?? "https://sandbox.qikink.com";
   const clientId = process.env.QIKINK_CLIENT_ID;
   const clientSecret = process.env.QIKINK_CLIENT_SECRET;
@@ -26,6 +22,22 @@ export async function getQikinkToken(): Promise<string> {
 
   const data = await res.json();
   cachedToken = data.Accesstoken as string;
-  tokenExpiresAt = Date.now() + (data.expires_in as number) * 1000;
+  // Treat expires_in as seconds; if it looks like ms (>1e9), use as-is
+  const expiresIn = (data.expires_in as number) > 1e9
+    ? data.expires_in
+    : (data.expires_in as number) * 1000;
+  tokenExpiresAt = Date.now() + expiresIn - 60_000;
   return cachedToken;
+}
+
+export async function getQikinkToken(): Promise<string> {
+  if (cachedToken && Date.now() < tokenExpiresAt) {
+    return cachedToken;
+  }
+  return fetchFreshToken();
+}
+
+export function invalidateQikinkToken() {
+  cachedToken = null;
+  tokenExpiresAt = 0;
 }
