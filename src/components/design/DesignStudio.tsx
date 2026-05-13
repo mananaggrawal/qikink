@@ -26,10 +26,12 @@ export function DesignStudio() {
   const {
     generatedImageUrl,
     noBgImageUrl,
+    bgRemovedImageUrl,
     isGenerating,
     setGenerating,
     setGeneratedImage,
     setNoBgImage,
+    setBgRemovedImage,
     addPastDesign,
     setStep,
     setDesignUrl,
@@ -65,14 +67,15 @@ export function DesignStudio() {
   const runPostProcessing = useCallback(async (rawUrl: string) => {
     setActiveOp("removing-bg");
     const bgRemovedUrl = await apiPost("/api/remove-bg", { imageUrl: rawUrl });
+    setBgRemovedImage(bgRemovedUrl); // clean PNG — used as Qikink design_link
 
     setActiveOp("vectorizing");
     const svgUrl = await apiPost("/api/vectorize", { imageUrl: bgRemovedUrl });
 
-    setNoBgImage(svgUrl);
+    setNoBgImage(svgUrl); // SVG for display/canvas only
     addPastDesign(svgUrl);
     setActiveOp("idle");
-  }, [apiPost, setNoBgImage, addPastDesign]);
+  }, [apiPost, setNoBgImage, setBgRemovedImage, addPastDesign]);
 
   // ─── Actions ─────────────────────────────────────────────────────────────
 
@@ -134,12 +137,8 @@ export function DesignStudio() {
     setIsExporting(true);
     try {
       const result = await exportCanvas();
-      const sourceDesignUrl = noBgImageUrl ?? generatedImageUrl;
-
-      // Qikink requires a raster image for design_link — convert Cloudinary SVG to PNG on the fly
-      const qikinkDesignUrl = sourceDesignUrl?.includes("res.cloudinary.com") && sourceDesignUrl.endsWith(".svg")
-        ? sourceDesignUrl.replace("/upload/", "/upload/f_png,w_3000/")
-        : sourceDesignUrl;
+      // Use the clean bg-removed PNG for Qikink (not the watermarked SVG)
+      const qikinkDesignUrl = bgRemovedImageUrl ?? generatedImageUrl;
 
       const mockupRes = await fetch("/api/upload-design", {
         method: "POST",
@@ -149,7 +148,7 @@ export function DesignStudio() {
       const mockupData = await mockupRes.json();
       if (mockupData.error) throw new Error(mockupData.error);
 
-      setDesignUrl(qikinkDesignUrl);
+      setDesignUrl(qikinkDesignUrl ?? null);
       setMockupUrl(mockupData.url);
       setStep("order");
     } catch (err) {

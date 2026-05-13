@@ -9,6 +9,7 @@ interface AppState {
   isGenerating: boolean;
   generatedImageUrl: string | null;
   noBgImageUrl: string | null;
+  bgRemovedImageUrl: string | null; // clean PNG (no watermark) used as Qikink design_link
   pastDesigns: string[];
   selectedProduct: Product;
   selectedSku: ProductSku;
@@ -27,6 +28,7 @@ interface AppState {
   setGenerating: (v: boolean) => void;
   setGeneratedImage: (url: string) => void;
   setNoBgImage: (url: string | null) => void;
+  setBgRemovedImage: (url: string | null) => void;
   addPastDesign: (url: string) => void;
   setPastDesigns: (designs: string[]) => void;
   setProduct: (p: Product) => void;
@@ -54,6 +56,7 @@ export const useAppStore = create<AppState>((set) => ({
   isGenerating: false,
   generatedImageUrl: null,
   noBgImageUrl: null,
+  bgRemovedImageUrl: null,
   pastDesigns: [],
   selectedProduct: defaultProduct,
   selectedSku: defaultSku,
@@ -72,6 +75,7 @@ export const useAppStore = create<AppState>((set) => ({
   setGenerating: (v) => set({ isGenerating: v }),
   setGeneratedImage: (url) => set({ generatedImageUrl: url }),
   setNoBgImage: (url) => set({ noBgImageUrl: url }),
+  setBgRemovedImage: (url) => set({ bgRemovedImageUrl: url }),
   addPastDesign: (url) => set((s) => ({ pastDesigns: [url, ...s.pastDesigns].slice(0, 5) })),
   setPastDesigns: (designs) => set({ pastDesigns: designs }),
 
@@ -111,6 +115,7 @@ export const useAppStore = create<AppState>((set) => ({
     set({
       generatedImageUrl: null,
       noBgImageUrl: null,
+      bgRemovedImageUrl: null,
       canvasDataUrl: null,
       designDataUrl: null,
       designUrl: null,
