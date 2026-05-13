@@ -53,7 +53,18 @@ export function useQikinkOrder() {
             ],
           },
         ],
-        shipping_address: shippingAddress,
+        shipping_address: {
+          first_name: shippingAddress.first_name,
+          last_name: shippingAddress.last_name,
+          address1: shippingAddress.address1,
+          ...(shippingAddress.address2 ? { address2: shippingAddress.address2 } : {}),
+          city: shippingAddress.city,
+          province: shippingAddress.province,
+          zip: shippingAddress.zip,
+          country_code: shippingAddress.country_code,
+          phone: shippingAddress.phone,
+          email: shippingAddress.email,
+        },
       };
 
       try {

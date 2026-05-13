@@ -51,7 +51,7 @@ export const PRODUCTS: Product[] = [
     name: "Oversized T-Shirt",
     description: "Premium 240gsm oversized boxy tee, DTG printed",
     mockupImageUrl: "/mockups/tshirt/Front_1_c_1.jpg",
-    printTypeId: 2,
+    printTypeId: 1,
     basePrice: 549,
     colorOptions: TSHIRT_COLORS,
     availablePlacements: [
