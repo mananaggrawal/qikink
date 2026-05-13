@@ -21,8 +21,8 @@ export async function POST(req: Request) {
   try {
     const form = new FormData();
     form.append("image.url", imageUrl);
-    // output.file_format defaults to svg — explicit for clarity
     form.append("output.file_format", "svg");
+    form.append("mode", "test"); // free tier — watermarked but functional
 
     const auth = Buffer.from(`${apiId}:${apiSecret}`).toString("base64");
 

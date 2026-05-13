@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { v2 as cloudinary } from "cloudinary";
 
 cloudinary.config({
@@ -14,28 +14,26 @@ export async function POST(req: Request) {
     return Response.json({ error: "Prompt is required" }, { status: 400 });
   }
 
-  const enhancedPrompt = `Flat graphic artwork only, isolated on a plain white background, no clothing, no t-shirt, no apparel, no product mockup — just the design itself. Bold and clear composition, suitable for direct screen printing: ${prompt}`;
+  const enhancedPrompt = `T-shirt graphic design, white background, vector illustration style, bold outlines, flat colors, high contrast, sharp edges, print-ready artwork. ${prompt}`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: enhancedPrompt,
+    const response = await ai.models.generateImages({
+      model: "imagen-4.0-generate-001",
+      prompt: enhancedPrompt,
       config: {
-        responseModalities: [Modality.IMAGE, Modality.TEXT],
+        numberOfImages: 1,
+        outputMimeType: "image/png",
       },
     });
 
-    const parts = response.candidates?.[0]?.content?.parts ?? [];
-    const imagePart = parts.find((p) => p.inlineData?.data);
-
-    if (!imagePart?.inlineData?.data) {
-      throw new Error("No image returned from Gemini");
+    const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+    if (!imageBytes) {
+      throw new Error("No image returned from Imagen");
     }
 
-    const { data: base64, mimeType = "image/png" } = imagePart.inlineData;
-    const rawDataUrl = `data:${mimeType};base64,${base64}`;
+    const rawDataUrl = `data:image/png;base64,${imageBytes}`;
 
     const result = await cloudinary.uploader.upload(rawDataUrl, {
       folder: "qikink-generated",
