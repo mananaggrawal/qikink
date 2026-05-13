@@ -13,7 +13,6 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
   const [hasDesign, setHasDesign] = useState(false);
 
   const {
-    noBgImageUrl,
     selectedProduct,
     selectedColor,
     selectedPlacement,
@@ -229,12 +228,6 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
     return { mockupDataUrl, designDataUrl };
   }, [selectedProduct, setCanvasDataUrl, setDesignDataUrl, setDesignDimensions]);
 
-  // When noBgImageUrl updates and a design is already on canvas, reload it
-  useEffect(() => {
-    if (noBgImageUrl && designRef.current) {
-      loadDesignImage(noBgImageUrl);
-    }
-  }, [noBgImageUrl, loadDesignImage]);
 
   return {
     isReady,
