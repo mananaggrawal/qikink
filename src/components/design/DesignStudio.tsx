@@ -79,32 +79,17 @@ export function DesignStudio() {
   // something while vectorization is in progress, then updates it to the SVG.
   const runPostProcessing = useCallback(
     async (rawUrl: string) => {
-      // Stage 1: remove background
-      setStage("removing-bg");
       setError(null);
-      let bgRemovedUrl: string;
-      try {
-        bgRemovedUrl = await callRemoveBg(rawUrl);
-        setNoBgImage(bgRemovedUrl); // show transparent PNG immediately
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Background removal failed");
-        setStage("idle");
-        return;
-      }
 
-      // Stage 2: vectorize the bg-removed PNG
+      setStage("removing-bg");
+      const bgRemovedUrl = await callRemoveBg(rawUrl);
+
       setStage("vectorizing");
-      try {
-        const svgUrl = await callVectorize(bgRemovedUrl);
-        setNoBgImage(svgUrl); // upgrade to vector SVG
-        addPastDesign(svgUrl);
-      } catch (err) {
-        // Soft failure — bg-removed PNG is still usable
-        setError(err instanceof Error ? err.message : "Vectorization failed — using background-removed PNG");
-        addPastDesign(bgRemovedUrl);
-      } finally {
-        setStage("idle");
-      }
+      const svgUrl = await callVectorize(bgRemovedUrl);
+
+      setNoBgImage(svgUrl);
+      addPastDesign(svgUrl);
+      setStage("idle");
     },
     [callRemoveBg, callVectorize, setNoBgImage, addPastDesign, setError]
   );
@@ -127,13 +112,13 @@ export function DesignStudio() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      setGeneratedImage(data.imageUrl); // show raw image right away
+      setGeneratedImage(data.imageUrl);
       setGenerating(false);
-      setStage("idle");
 
       await runPostProcessing(data.imageUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
+      setNoBgImage(null);
       setGenerating(false);
       setStage("idle");
     }
@@ -148,12 +133,15 @@ export function DesignStudio() {
       reader.onload = async (ev) => {
         const dataUrl = ev.target?.result as string;
         if (!dataUrl) return;
-        // Show the raw file immediately as a local preview (avoids storing
-        // a large base64 string in Zustand / localStorage).
         setLocalPreviewUrl(dataUrl);
         setNoBgImage(null);
-        await runPostProcessing(dataUrl);
-        setLocalPreviewUrl(null); // Cloudinary URL is now in noBgImageUrl
+        try {
+          await runPostProcessing(dataUrl);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Processing failed");
+          setStage("idle");
+        }
+        setLocalPreviewUrl(null);
       };
       reader.readAsDataURL(file);
     },
