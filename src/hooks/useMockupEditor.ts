@@ -111,8 +111,13 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
         designRef.current = null;
       }
 
+      // Fabric's FabricImage.fromURL can't render SVG — convert Cloudinary SVGs to PNG
+      const loadUrl = url.includes("res.cloudinary.com") && url.endsWith(".svg")
+        ? url.replace("/upload/", "/upload/f_png,w_2000/")
+        : url;
+
       try {
-        const img = await FImg.fromURL(url, { crossOrigin: "anonymous" });
+        const img = await FImg.fromURL(loadUrl, { crossOrigin: "anonymous" });
 
         const { x, y, width, height } = selectedProduct.printAreaPercent;
         const printX = x * CANVAS_SIZE;
