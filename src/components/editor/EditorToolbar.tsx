@@ -5,22 +5,18 @@ import { Select } from "@/components/ui/Select";
 import { useAppStore } from "@/store/useAppStore";
 
 interface Props {
-  onRemoveBg: () => void;
   onFlipH: () => void;
   onFlipV: () => void;
   onRotate: () => void;
   onReset: () => void;
-  isRemovingBg: boolean;
   hasDesign: boolean;
 }
 
 export function EditorToolbar({
-  onRemoveBg,
   onFlipH,
   onFlipV,
   onRotate,
   onReset,
-  isRemovingBg,
   hasDesign,
 }: Props) {
   const { selectedProduct, selectedSku, selectedColor, selectedPlacement, setSku, setPlacement } =
@@ -75,15 +71,6 @@ export function EditorToolbar({
       <div className="border-t border-gray-800 pt-3">
         <p className="text-xs text-gray-500 mb-2 uppercase tracking-wide font-medium">Design Tools</p>
         <div className="grid grid-cols-2 gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onRemoveBg}
-            loading={isRemovingBg}
-            disabled={!hasDesign}
-          >
-            Remove BG
-          </Button>
           <Button variant="secondary" size="sm" onClick={onFlipH} disabled={!hasDesign}>
             Flip ↔
           </Button>

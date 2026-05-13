@@ -10,11 +10,9 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
   const fabricRef = useRef<Canvas | null>(null);
   const designRef = useRef<FabricImage | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [isRemovingBg, setIsRemovingBg] = useState(false);
   const [hasDesign, setHasDesign] = useState(false);
 
   const {
-    generatedImageUrl,
     noBgImageUrl,
     selectedProduct,
     selectedColor,
@@ -22,7 +20,6 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
     setCanvasDataUrl,
     setDesignDataUrl,
     setDesignDimensions,
-    setNoBgImage,
     setError,
   } = useAppStore();
 
@@ -151,30 +148,6 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
     [selectedProduct, setError]
   );
 
-  const removeBackground = useCallback(async () => {
-    const url = generatedImageUrl;
-    if (!url) return;
-
-    setIsRemovingBg(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/remove-bg", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: url }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setNoBgImage(data.dataUrl);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Background removal failed";
-      setError(msg);
-    } finally {
-      setIsRemovingBg(false);
-    }
-  }, [generatedImageUrl, setNoBgImage, setError]);
-
   const flipDesign = useCallback((direction: "horizontal" | "vertical") => {
     const obj = designRef.current;
     if (!obj) return;
@@ -260,10 +233,8 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
 
   return {
     isReady,
-    isRemovingBg,
     hasDesign,
     loadDesignImage,
-    removeBackground,
     flipDesign,
     rotateDesign,
     resetDesignTransform,

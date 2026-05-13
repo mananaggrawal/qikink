@@ -10,12 +10,10 @@ import { Button } from "@/components/ui/Button";
 export function MockupEditor() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const { setStep, setDesignUrl, setMockupUrl, error } = useAppStore();
+  const { setStep, setDesignUrl, setMockupUrl, generatedImageUrl, noBgImageUrl, error } = useAppStore();
 
   const {
     isReady,
-    isRemovingBg,
-    removeBackground,
     flipDesign,
     rotateDesign,
     resetDesignTransform,
@@ -32,27 +30,19 @@ export function MockupEditor() {
         return;
       }
 
-      // Upload both URLs
-      const [designRes, mockupRes] = await Promise.all([
-        fetch("/api/upload-design", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dataUrl: result.designDataUrl, filename: `design-${Date.now()}` }),
-        }),
-        fetch("/api/upload-design", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dataUrl: result.mockupDataUrl, filename: `mockup-${Date.now()}` }),
-        }),
-      ]);
+      // design_link = original full-res Cloudinary image; mockup_link = canvas composite
+      const sourceDesignUrl = noBgImageUrl ?? generatedImageUrl;
 
-      const [designData, mockupData] = await Promise.all([designRes.json(), mockupRes.json()]);
+      const mockupRes = await fetch("/api/upload-design", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: result.mockupDataUrl, filename: `mockup-${Date.now()}` }),
+      });
 
-      if (designData.error || mockupData.error) {
-        throw new Error(designData.error ?? mockupData.error);
-      }
+      const mockupData = await mockupRes.json();
+      if (mockupData.error) throw new Error(mockupData.error);
 
-      setDesignUrl(designData.url);
+      setDesignUrl(sourceDesignUrl);
       setMockupUrl(mockupData.url);
       setStep("order");
     } catch (err) {
@@ -72,12 +62,10 @@ export function MockupEditor() {
         </div>
 
         <EditorToolbar
-          onRemoveBg={removeBackground}
           onFlipH={() => flipDesign("horizontal")}
           onFlipV={() => flipDesign("vertical")}
           onRotate={() => rotateDesign(90)}
           onReset={resetDesignTransform}
-          isRemovingBg={isRemovingBg}
           hasDesign={hasDesign}
         />
 

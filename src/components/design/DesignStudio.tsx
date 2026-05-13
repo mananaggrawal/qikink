@@ -12,12 +12,18 @@ import { Button } from "@/components/ui/Button";
 
 const CANVAS_SIZE = 560;
 
+type PipelineStage = "idle" | "generating" | "removing-bg" | "vectorizing";
+
 export function DesignStudio() {
   useDesignPersistence();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [stage, setStage] = useState<PipelineStage>("idle");
+  // Holds the local data URL for an uploaded file so we can preview it
+  // before the Cloudinary upload completes (not stored in Zustand).
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
 
   const {
     generatedImageUrl,
@@ -36,19 +42,81 @@ export function DesignStudio() {
 
   const {
     isReady,
-    isRemovingBg,
     hasDesign,
     loadDesignImage,
-    removeBackground,
     flipDesign,
     rotateDesign,
     resetDesignTransform,
     exportCanvas,
   } = useMockupEditor(canvasRef);
 
+  // ─── Pipeline helpers ────────────────────────────────────────────────────
+
+  const callRemoveBg = useCallback(async (imageUrl: string): Promise<string> => {
+    const res = await fetch("/api/remove-bg", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageUrl }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.url as string;
+  }, []);
+
+  const callVectorize = useCallback(async (imageUrl: string): Promise<string> => {
+    const res = await fetch("/api/vectorize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageUrl }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.url as string;
+  }, []);
+
+  // Runs remove-bg → vectorize in sequence.
+  // Sets noBgImageUrl to the intermediate bg-removed PNG so the user sees
+  // something while vectorization is in progress, then updates it to the SVG.
+  const runPostProcessing = useCallback(
+    async (rawUrl: string) => {
+      // Stage 1: remove background
+      setStage("removing-bg");
+      setError(null);
+      let bgRemovedUrl: string;
+      try {
+        bgRemovedUrl = await callRemoveBg(rawUrl);
+        setNoBgImage(bgRemovedUrl); // show transparent PNG immediately
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Background removal failed");
+        setStage("idle");
+        return;
+      }
+
+      // Stage 2: vectorize the bg-removed PNG
+      setStage("vectorizing");
+      try {
+        const svgUrl = await callVectorize(bgRemovedUrl);
+        setNoBgImage(svgUrl); // upgrade to vector SVG
+        addPastDesign(svgUrl);
+      } catch (err) {
+        // Soft failure — bg-removed PNG is still usable
+        setError(err instanceof Error ? err.message : "Vectorization failed — using background-removed PNG");
+        addPastDesign(bgRemovedUrl);
+      } finally {
+        setStage("idle");
+      }
+    },
+    [callRemoveBg, callVectorize, setNoBgImage, addPastDesign, setError]
+  );
+
+  // ─── Actions ─────────────────────────────────────────────────────────────
+
   const generateImage = useCallback(async () => {
-    if (!prompt.trim() || isGenerating) return;
+    if (!prompt.trim() || stage !== "idle") return;
+    setStage("generating");
     setGenerating(true);
+    setNoBgImage(null);
+    setLocalPreviewUrl(null);
     setError(null);
     try {
       const res = await fetch("/api/generate-image", {
@@ -58,58 +126,60 @@ export function DesignStudio() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setGeneratedImage(data.imageUrl);
-      addPastDesign(data.imageUrl);
+
+      setGeneratedImage(data.imageUrl); // show raw image right away
+      setGenerating(false);
+      setStage("idle");
+
+      await runPostProcessing(data.imageUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
-    } finally {
       setGenerating(false);
+      setStage("idle");
     }
-  }, [prompt, isGenerating, setGenerating, setGeneratedImage, setError]);
+  }, [prompt, stage, setGenerating, setGeneratedImage, setNoBgImage, setLocalPreviewUrl, setError, runPostProcessing]);
 
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      e.target.value = ""; // allow re-selecting same file
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        const url = ev.target?.result as string;
-        if (url) {
-          setGeneratedImage(url);
-        }
+      reader.onload = async (ev) => {
+        const dataUrl = ev.target?.result as string;
+        if (!dataUrl) return;
+        // Show the raw file immediately as a local preview (avoids storing
+        // a large base64 string in Zustand / localStorage).
+        setLocalPreviewUrl(dataUrl);
+        setNoBgImage(null);
+        await runPostProcessing(dataUrl);
+        setLocalPreviewUrl(null); // Cloudinary URL is now in noBgImageUrl
       };
       reader.readAsDataURL(file);
     },
-    [setGeneratedImage]
+    [setGeneratedImage, setNoBgImage, runPostProcessing]
   );
 
   const handleAddToMockup = useCallback(() => {
-    const url = noBgImageUrl ?? generatedImageUrl;
+    const url = noBgImageUrl ?? generatedImageUrl ?? localPreviewUrl;
     if (url) loadDesignImage(url);
-  }, [noBgImageUrl, generatedImageUrl, loadDesignImage]);
+  }, [noBgImageUrl, generatedImageUrl, localPreviewUrl, loadDesignImage]);
 
   const handleProceed = async () => {
     setIsExporting(true);
     try {
       const result = await exportCanvas();
+      const sourceDesignUrl = noBgImageUrl ?? generatedImageUrl;
 
-      const [designRes, mockupRes] = await Promise.all([
-        fetch("/api/upload-design", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dataUrl: result.designDataUrl, filename: `design-${Date.now()}` }),
-        }),
-        fetch("/api/upload-design", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dataUrl: result.mockupDataUrl, filename: `mockup-${Date.now()}` }),
-        }),
-      ]);
+      const mockupRes = await fetch("/api/upload-design", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: result.mockupDataUrl, filename: `mockup-${Date.now()}` }),
+      });
+      const mockupData = await mockupRes.json();
+      if (mockupData.error) throw new Error(mockupData.error);
 
-      const [designData, mockupData] = await Promise.all([designRes.json(), mockupRes.json()]);
-      if (designData.error || mockupData.error) throw new Error(designData.error ?? mockupData.error);
-
-      setDesignUrl(designData.url);
+      setDesignUrl(sourceDesignUrl);
       setMockupUrl(mockupData.url);
       setStep("order");
     } catch (err) {
@@ -119,13 +189,25 @@ export function DesignStudio() {
     }
   };
 
-  const displayUrl = noBgImageUrl ?? generatedImageUrl;
+  // ─── Derived state ───────────────────────────────────────────────────────
+
+  const displayUrl = noBgImageUrl ?? generatedImageUrl ?? localPreviewUrl;
+  const isBusy = stage !== "idle";
+
+  const overlayLabel: Record<PipelineStage, string> = {
+    idle: "",
+    generating: "Generating with Gemini...",
+    "removing-bg": "Removing background...",
+    vectorizing: "Vectorizing to SVG...",
+  };
+
+  // While removing bg or vectorizing we have a raw image to show underneath
+  const showImageUnderOverlay = displayUrl && stage !== "generating";
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
       {/* LEFT: Controls */}
       <div className="lg:w-72 flex-shrink-0 flex flex-col gap-5 overflow-y-auto pb-4">
-        {/* Product selector */}
         <div>
           <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Product</p>
           <ProductSelector />
@@ -154,14 +236,14 @@ export function DesignStudio() {
           <Button
             onClick={generateImage}
             loading={isGenerating}
-            disabled={!prompt.trim()}
+            disabled={!prompt.trim() || isBusy}
             className="w-full"
           >
             {isGenerating ? "Generating..." : "Generate Design"}
           </Button>
         </div>
 
-        {/* Upload own image */}
+        {/* Upload */}
         <div>
           <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">
             Upload Your Own
@@ -177,6 +259,7 @@ export function DesignStudio() {
             variant="secondary"
             size="sm"
             className="w-full"
+            disabled={isBusy}
             onClick={() => fileInputRef.current?.click()}
           >
             Upload Image
@@ -184,43 +267,39 @@ export function DesignStudio() {
         </div>
 
         {/* Current design preview */}
-        {(isGenerating || displayUrl) && (
+        {(isBusy || displayUrl) && (
           <div className="flex flex-col gap-2">
             <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
               Current Design
             </p>
             <div className="relative rounded-xl overflow-hidden border border-gray-700 bg-gray-900 aspect-square">
-              {isGenerating ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full" />
-                  <p className="text-xs text-gray-500">Generating with Gemini...</p>
-                </div>
-              ) : displayUrl ? (
+              {/* Image visible under the overlay during bg removal / vectorization */}
+              {showImageUnderOverlay && (
                 <img src={displayUrl} alt="Design" className="w-full h-full object-contain" />
-              ) : null}
+              )}
+
+              {/* Overlay — full-cover for generation (no image yet), semi for later stages */}
+              {isBusy && (
+                <div
+                  className={`absolute inset-0 flex flex-col items-center justify-center gap-3 ${
+                    showImageUnderOverlay ? "bg-gray-900/75" : "bg-gray-900"
+                  }`}
+                >
+                  <div className="animate-spin w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full" />
+                  <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[stage]}</p>
+                </div>
+              )}
             </div>
 
-            {!isGenerating && displayUrl && (
-              <div className="flex flex-col gap-2">
-                <Button onClick={handleAddToMockup} size="sm" className="w-full">
-                  Place on Mockup →
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={removeBackground}
-                  loading={isRemovingBg}
-                  disabled={!generatedImageUrl || generatedImageUrl.startsWith("data:")}
-                  className="w-full"
-                >
-                  {noBgImageUrl ? "BG Removed ✓" : "Remove Background"}
-                </Button>
-              </div>
+            {!isBusy && displayUrl && (
+              <Button onClick={handleAddToMockup} size="sm" className="w-full">
+                Place on Mockup →
+              </Button>
             )}
           </div>
         )}
 
-        {/* Past images gallery */}
+        {/* Past designs */}
         <div>
           <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">
             Past Designs
@@ -230,6 +309,7 @@ export function DesignStudio() {
             onSelect={(url) => {
               setGeneratedImage(url);
               setNoBgImage(null);
+              setLocalPreviewUrl(null);
             }}
           />
         </div>
@@ -237,12 +317,10 @@ export function DesignStudio() {
         {/* Design tools */}
         {hasDesign && (
           <EditorToolbar
-            onRemoveBg={removeBackground}
             onFlipH={() => flipDesign("horizontal")}
             onFlipV={() => flipDesign("vertical")}
             onRotate={() => rotateDesign(90)}
             onReset={resetDesignTransform}
-            isRemovingBg={isRemovingBg}
             hasDesign={hasDesign}
           />
         )}
@@ -254,7 +332,7 @@ export function DesignStudio() {
         )}
       </div>
 
-      {/* RIGHT: Mockup Canvas */}
+      {/* RIGHT: Canvas */}
       <div className="flex-1 flex flex-col items-center gap-4">
         <div className="relative" style={{ width: CANVAS_SIZE, maxWidth: "100%" }}>
           {!isReady && (
