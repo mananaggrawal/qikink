@@ -267,7 +267,7 @@ export function DesignStudio() {
             selectedUrl={noBgImageUrl ?? generatedImageUrl ?? null}
             onSelect={(url) => {
               setGeneratedImage(url);
-              setNoBgImage(null);
+              setNoBgImage(url);
               setLocalPreviewUrl(null);
             }}
           />
