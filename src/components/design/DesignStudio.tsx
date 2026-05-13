@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 
 const CANVAS_SIZE = 560;
 
-type PipelineStage = "idle" | "generating" | "removing-bg" | "vectorizing";
+type ActiveOp = "idle" | "generating" | "uploading" | "removing-bg" | "vectorizing";
 
 export function DesignStudio() {
   useDesignPersistence();
@@ -20,7 +20,7 @@ export function DesignStudio() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
   const [isExporting, setIsExporting] = useState(false);
-  const [stage, setStage] = useState<PipelineStage>("idle");
+  const [activeOp, setActiveOp] = useState<ActiveOp>("idle");
   // Holds the local data URL for an uploaded file so we can preview it
   // before the Cloudinary upload completes (not stored in Zustand).
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
@@ -50,55 +50,24 @@ export function DesignStudio() {
     exportCanvas,
   } = useMockupEditor(canvasRef);
 
-  // ─── Pipeline helpers ────────────────────────────────────────────────────
+  // ─── API calls ───────────────────────────────────────────────────────────
 
-  const callRemoveBg = useCallback(async (imageUrl: string): Promise<string> => {
-    const res = await fetch("/api/remove-bg", {
+  const apiPost = useCallback(async (path: string, body: object): Promise<string> => {
+    const res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrl }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     return data.url as string;
   }, []);
-
-  const callVectorize = useCallback(async (imageUrl: string): Promise<string> => {
-    const res = await fetch("/api/vectorize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrl }),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    return data.url as string;
-  }, []);
-
-  // Runs remove-bg → vectorize in sequence.
-  // Sets noBgImageUrl to the intermediate bg-removed PNG so the user sees
-  // something while vectorization is in progress, then updates it to the SVG.
-  const runPostProcessing = useCallback(
-    async (rawUrl: string) => {
-      setError(null);
-
-      setStage("removing-bg");
-      const bgRemovedUrl = await callRemoveBg(rawUrl);
-
-      setStage("vectorizing");
-      const svgUrl = await callVectorize(bgRemovedUrl);
-
-      setNoBgImage(svgUrl);
-      addPastDesign(svgUrl);
-      setStage("idle");
-    },
-    [callRemoveBg, callVectorize, setNoBgImage, addPastDesign, setError]
-  );
 
   // ─── Actions ─────────────────────────────────────────────────────────────
 
   const generateImage = useCallback(async () => {
-    if (!prompt.trim() || stage !== "idle") return;
-    setStage("generating");
+    if (!prompt.trim() || activeOp !== "idle") return;
+    setActiveOp("generating");
     setGenerating(true);
     setNoBgImage(null);
     setLocalPreviewUrl(null);
@@ -111,42 +80,73 @@ export function DesignStudio() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
       setGeneratedImage(data.imageUrl);
-      setGenerating(false);
-
-      await runPostProcessing(data.imageUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
-      setNoBgImage(null);
+    } finally {
       setGenerating(false);
-      setStage("idle");
+      setActiveOp("idle");
     }
-  }, [prompt, stage, setGenerating, setGeneratedImage, setNoBgImage, setLocalPreviewUrl, setError, runPostProcessing]);
+  }, [prompt, activeOp, setGenerating, setGeneratedImage, setNoBgImage, setLocalPreviewUrl, setError]);
 
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      e.target.value = ""; // allow re-selecting same file
+      e.target.value = "";
       const reader = new FileReader();
       reader.onload = async (ev) => {
         const dataUrl = ev.target?.result as string;
         if (!dataUrl) return;
         setLocalPreviewUrl(dataUrl);
         setNoBgImage(null);
+        setError(null);
+        setActiveOp("uploading");
         try {
-          await runPostProcessing(dataUrl);
+          const url = await apiPost("/api/upload-design", { dataUrl, filename: `upload-${Date.now()}` });
+          setGeneratedImage(url);
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Processing failed");
-          setStage("idle");
+          setError(err instanceof Error ? err.message : "Upload failed");
+        } finally {
+          setLocalPreviewUrl(null);
+          setActiveOp("idle");
         }
-        setLocalPreviewUrl(null);
       };
       reader.readAsDataURL(file);
     },
-    [setGeneratedImage, setNoBgImage, runPostProcessing]
+    [apiPost, setGeneratedImage, setNoBgImage, setError]
   );
+
+  const handleRemoveBg = useCallback(async () => {
+    const source = noBgImageUrl ?? generatedImageUrl;
+    if (!source || activeOp !== "idle") return;
+    setActiveOp("removing-bg");
+    setError(null);
+    try {
+      const url = await apiPost("/api/remove-bg", { imageUrl: source });
+      setNoBgImage(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Background removal failed");
+    } finally {
+      setActiveOp("idle");
+    }
+  }, [noBgImageUrl, generatedImageUrl, activeOp, apiPost, setNoBgImage, setError]);
+
+  const handleVectorize = useCallback(async () => {
+    const source = noBgImageUrl ?? generatedImageUrl;
+    if (!source || activeOp !== "idle") return;
+    setActiveOp("vectorizing");
+    setError(null);
+    try {
+      const url = await apiPost("/api/vectorize", { imageUrl: source });
+      setNoBgImage(url);
+      addPastDesign(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Vectorization failed");
+    } finally {
+      setActiveOp("idle");
+    }
+  }, [noBgImageUrl, generatedImageUrl, activeOp, apiPost, setNoBgImage, addPastDesign, setError]);
 
   const handleAddToMockup = useCallback(() => {
     const url = noBgImageUrl ?? generatedImageUrl ?? localPreviewUrl;
@@ -180,17 +180,17 @@ export function DesignStudio() {
   // ─── Derived state ───────────────────────────────────────────────────────
 
   const displayUrl = noBgImageUrl ?? generatedImageUrl ?? localPreviewUrl;
-  const isBusy = stage !== "idle";
+  const isBusy = activeOp !== "idle";
 
-  const overlayLabel: Record<PipelineStage, string> = {
+  const overlayLabel: Record<ActiveOp, string> = {
     idle: "",
-    generating: "Generating with Gemini...",
+    generating: "Generating with Imagen 4...",
+    uploading: "Uploading...",
     "removing-bg": "Removing background...",
     vectorizing: "Vectorizing to SVG...",
   };
 
-  // While removing bg or vectorizing we have a raw image to show underneath
-  const showImageUnderOverlay = displayUrl && stage !== "generating";
+  const showImageUnderOverlay = displayUrl && activeOp !== "generating" && activeOp !== "uploading";
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
@@ -274,15 +274,37 @@ export function DesignStudio() {
                   }`}
                 >
                   <div className="animate-spin w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full" />
-                  <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[stage]}</p>
+                  <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[activeOp]}</p>
                 </div>
               )}
             </div>
 
             {!isBusy && displayUrl && (
-              <Button onClick={handleAddToMockup} size="sm" className="w-full">
-                Place on Mockup →
-              </Button>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleRemoveBg}
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    disabled={isBusy}
+                  >
+                    Remove BG
+                  </Button>
+                  <Button
+                    onClick={handleVectorize}
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    disabled={isBusy}
+                  >
+                    Vectorize
+                  </Button>
+                </div>
+                <Button onClick={handleAddToMockup} size="sm" className="w-full">
+                  Place on Mockup →
+                </Button>
+              </div>
             )}
           </div>
         )}
