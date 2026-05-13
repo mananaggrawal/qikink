@@ -21,8 +21,6 @@ export function DesignStudio() {
   const [prompt, setPrompt] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [activeOp, setActiveOp] = useState<ActiveOp>("idle");
-  // Holds the local data URL for an uploaded file so we can preview it
-  // before the Cloudinary upload completes (not stored in Zustand).
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
 
   const {
@@ -50,7 +48,7 @@ export function DesignStudio() {
     exportCanvas,
   } = useMockupEditor(canvasRef);
 
-  // ─── API calls ───────────────────────────────────────────────────────────
+  // ─── API ─────────────────────────────────────────────────────────────────
 
   const apiPost = useCallback(async (path: string, body: object): Promise<string> => {
     const res = await fetch(path, {
@@ -62,6 +60,19 @@ export function DesignStudio() {
     if (data.error) throw new Error(data.error);
     return data.url as string;
   }, []);
+
+  // Automatic pipeline: remove-bg → vectorize. Hard fails — no fallbacks.
+  const runPostProcessing = useCallback(async (rawUrl: string) => {
+    setActiveOp("removing-bg");
+    const bgRemovedUrl = await apiPost("/api/remove-bg", { imageUrl: rawUrl });
+
+    setActiveOp("vectorizing");
+    const svgUrl = await apiPost("/api/vectorize", { imageUrl: bgRemovedUrl });
+
+    setNoBgImage(svgUrl);
+    addPastDesign(svgUrl);
+    setActiveOp("idle");
+  }, [apiPost, setNoBgImage, addPastDesign]);
 
   // ─── Actions ─────────────────────────────────────────────────────────────
 
@@ -81,13 +92,14 @@ export function DesignStudio() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setGeneratedImage(data.imageUrl);
+      setGenerating(false);
+      await runPostProcessing(data.imageUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
-    } finally {
       setGenerating(false);
       setActiveOp("idle");
     }
-  }, [prompt, activeOp, setGenerating, setGeneratedImage, setNoBgImage, setLocalPreviewUrl, setError]);
+  }, [prompt, activeOp, setGenerating, setGeneratedImage, setNoBgImage, setLocalPreviewUrl, setError, runPostProcessing]);
 
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,53 +117,18 @@ export function DesignStudio() {
         try {
           const url = await apiPost("/api/upload-design", { dataUrl, filename: `upload-${Date.now()}` });
           setGeneratedImage(url);
+          setLocalPreviewUrl(null);
+          await runPostProcessing(url);
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Upload failed");
-        } finally {
+          setError(err instanceof Error ? err.message : "Upload or processing failed");
           setLocalPreviewUrl(null);
           setActiveOp("idle");
         }
       };
       reader.readAsDataURL(file);
     },
-    [apiPost, setGeneratedImage, setNoBgImage, setError]
+    [apiPost, setGeneratedImage, setNoBgImage, setError, runPostProcessing]
   );
-
-  const handleRemoveBg = useCallback(async () => {
-    const source = noBgImageUrl ?? generatedImageUrl;
-    if (!source || activeOp !== "idle") return;
-    setActiveOp("removing-bg");
-    setError(null);
-    try {
-      const url = await apiPost("/api/remove-bg", { imageUrl: source });
-      setNoBgImage(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Background removal failed");
-    } finally {
-      setActiveOp("idle");
-    }
-  }, [noBgImageUrl, generatedImageUrl, activeOp, apiPost, setNoBgImage, setError]);
-
-  const handleVectorize = useCallback(async () => {
-    const source = noBgImageUrl ?? generatedImageUrl;
-    if (!source || activeOp !== "idle") return;
-    setActiveOp("vectorizing");
-    setError(null);
-    try {
-      const url = await apiPost("/api/vectorize", { imageUrl: source });
-      setNoBgImage(url);
-      addPastDesign(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Vectorization failed");
-    } finally {
-      setActiveOp("idle");
-    }
-  }, [noBgImageUrl, generatedImageUrl, activeOp, apiPost, setNoBgImage, addPastDesign, setError]);
-
-  const handleAddToMockup = useCallback(() => {
-    const url = noBgImageUrl ?? generatedImageUrl ?? localPreviewUrl;
-    if (url) loadDesignImage(url);
-  }, [noBgImageUrl, generatedImageUrl, localPreviewUrl, loadDesignImage]);
 
   const handleProceed = async () => {
     setIsExporting(true);
@@ -179,8 +156,8 @@ export function DesignStudio() {
 
   // ─── Derived state ───────────────────────────────────────────────────────
 
-  const displayUrl = noBgImageUrl ?? generatedImageUrl ?? localPreviewUrl;
   const isBusy = activeOp !== "idle";
+  const isPostProcessing = activeOp === "removing-bg" || activeOp === "vectorizing";
 
   const overlayLabel: Record<ActiveOp, string> = {
     idle: "",
@@ -190,7 +167,7 @@ export function DesignStudio() {
     vectorizing: "Vectorizing to SVG...",
   };
 
-  const showImageUnderOverlay = displayUrl && activeOp !== "generating" && activeOp !== "uploading";
+  const rawUrl = generatedImageUrl ?? localPreviewUrl;
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
@@ -254,56 +231,63 @@ export function DesignStudio() {
           </Button>
         </div>
 
-        {/* Current design preview */}
-        {(isBusy || displayUrl) && (
-          <div className="flex flex-col gap-2">
+        {/* Design previews */}
+        {(isBusy || rawUrl || noBgImageUrl) && (
+          <div className="flex flex-col gap-3">
             <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
               Current Design
             </p>
-            <div className="relative rounded-xl overflow-hidden border border-gray-700 bg-gray-900 aspect-square">
-              {/* Image visible under the overlay during bg removal / vectorization */}
-              {showImageUnderOverlay && (
-                <img src={displayUrl} alt="Design" className="w-full h-full object-contain" />
-              )}
 
-              {/* Overlay — full-cover for generation (no image yet), semi for later stages */}
-              {isBusy && (
-                <div
-                  className={`absolute inset-0 flex flex-col items-center justify-center gap-3 ${
-                    showImageUnderOverlay ? "bg-gray-900/75" : "bg-gray-900"
-                  }`}
-                >
-                  <div className="animate-spin w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full" />
-                  <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[activeOp]}</p>
+            {/* Original — always shown once it exists */}
+            {rawUrl && (
+              <div className="flex flex-col gap-1">
+                <p className="text-xs text-gray-600">Original</p>
+                <div className="rounded-lg overflow-hidden border border-gray-700 bg-gray-900 aspect-square">
+                  <img src={rawUrl} alt="Original" className="w-full h-full object-contain" />
                 </div>
-              )}
-            </div>
-
-            {!isBusy && displayUrl && (
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
+                {!isBusy && (
                   <Button
-                    onClick={handleRemoveBg}
                     variant="secondary"
                     size="sm"
-                    className="flex-1"
-                    disabled={isBusy}
+                    className="w-full"
+                    onClick={() => loadDesignImage(rawUrl)}
                   >
-                    Remove BG
+                    Use Original →
                   </Button>
-                  <Button
-                    onClick={handleVectorize}
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1"
-                    disabled={isBusy}
-                  >
-                    Vectorize
-                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Processed — shows spinner while pipeline runs, image when done */}
+            {(isPostProcessing || noBgImageUrl) && (
+              <div className="flex flex-col gap-1">
+                <p className="text-xs text-gray-600">
+                  {activeOp === "removing-bg" ? "Removing background..." : activeOp === "vectorizing" ? "Vectorizing..." : "Processed (SVG)"}
+                </p>
+                <div className="relative rounded-lg overflow-hidden border border-gray-700 bg-gray-900 aspect-square">
+                  {noBgImageUrl && (
+                    <img src={noBgImageUrl} alt="Processed" className="w-full h-full object-contain" />
+                  )}
+                  {isPostProcessing && (
+                    <div className={`absolute inset-0 flex flex-col items-center justify-center gap-3 ${noBgImageUrl ? "bg-gray-900/75" : "bg-gray-900"}`}>
+                      <div className="animate-spin w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full" />
+                      <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[activeOp]}</p>
+                    </div>
+                  )}
                 </div>
-                <Button onClick={handleAddToMockup} size="sm" className="w-full">
-                  Place on Mockup →
-                </Button>
+                {!isBusy && noBgImageUrl && (
+                  <Button size="sm" className="w-full" onClick={() => loadDesignImage(noBgImageUrl)}>
+                    Use Processed →
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Generating / uploading full spinner (no image yet) */}
+            {(activeOp === "generating" || activeOp === "uploading") && !rawUrl && (
+              <div className="rounded-lg overflow-hidden border border-gray-700 bg-gray-900 aspect-square flex flex-col items-center justify-center gap-3">
+                <div className="animate-spin w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full" />
+                <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[activeOp]}</p>
               </div>
             )}
           </div>
@@ -315,7 +299,7 @@ export function DesignStudio() {
             Past Designs
           </p>
           <ImageGallery
-            selectedUrl={displayUrl}
+            selectedUrl={noBgImageUrl ?? generatedImageUrl ?? null}
             onSelect={(url) => {
               setGeneratedImage(url);
               setNoBgImage(null);
@@ -364,7 +348,7 @@ export function DesignStudio() {
 
         {!hasDesign && isReady && (
           <p className="text-sm text-gray-600 text-center">
-            Generate or upload a design, then click "Place on Mockup" — or proceed blank
+            Generate or upload a design, then click "Use Original" or "Use Processed" to place it
           </p>
         )}
 
