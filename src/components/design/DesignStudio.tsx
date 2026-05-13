@@ -136,6 +136,11 @@ export function DesignStudio() {
       const result = await exportCanvas();
       const sourceDesignUrl = noBgImageUrl ?? generatedImageUrl;
 
+      // Qikink requires a raster image for design_link — convert Cloudinary SVG to PNG on the fly
+      const qikinkDesignUrl = sourceDesignUrl?.includes("res.cloudinary.com") && sourceDesignUrl.endsWith(".svg")
+        ? sourceDesignUrl.replace("/upload/", "/upload/f_png,w_3000/")
+        : sourceDesignUrl;
+
       const mockupRes = await fetch("/api/upload-design", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,7 +149,7 @@ export function DesignStudio() {
       const mockupData = await mockupRes.json();
       if (mockupData.error) throw new Error(mockupData.error);
 
-      setDesignUrl(sourceDesignUrl);
+      setDesignUrl(qikinkDesignUrl);
       setMockupUrl(mockupData.url);
       setStep("order");
     } catch (err) {

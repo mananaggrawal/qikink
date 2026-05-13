@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       order_number: generateOrderNumber(),
     };
 
+    console.log("[qikink order] payload:", JSON.stringify(orderPayload, null, 2));
     let token = await getQikinkToken();
     let res = await createOrder(orderPayload, token);
     let data = await res.json();
