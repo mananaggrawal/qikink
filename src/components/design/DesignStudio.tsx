@@ -137,8 +137,11 @@ export function DesignStudio() {
     setIsExporting(true);
     try {
       const result = await exportCanvas();
-      // Use the clean bg-removed PNG for Qikink (not the watermarked SVG)
-      const qikinkDesignUrl = bgRemovedImageUrl ?? generatedImageUrl;
+      // Convert Cloudinary SVG URL to PNG for Qikink preview compatibility
+      const rawDesignUrl = noBgImageUrl ?? bgRemovedImageUrl ?? generatedImageUrl;
+      const qikinkDesignUrl = rawDesignUrl?.includes("res.cloudinary.com") && rawDesignUrl.endsWith(".svg")
+        ? rawDesignUrl.replace("/upload/", "/upload/f_png,w_3000/").replace(/\.svg$/, ".png")
+        : rawDesignUrl;
 
       const mockupRes = await fetch("/api/upload-design", {
         method: "POST",
