@@ -162,7 +162,6 @@ export function DesignStudio() {
   // ─── Derived state ───────────────────────────────────────────────────────
 
   const isBusy = activeOp !== "idle";
-  const isPostProcessing = activeOp === "removing-bg" || activeOp === "vectorizing";
 
   const overlayLabel: Record<ActiveOp, string> = {
     idle: "",
@@ -171,8 +170,6 @@ export function DesignStudio() {
     "removing-bg": "Removing background...",
     vectorizing: "Vectorizing to SVG...",
   };
-
-  const rawUrl = generatedImageUrl ?? localPreviewUrl;
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
@@ -236,64 +233,27 @@ export function DesignStudio() {
           </Button>
         </div>
 
-        {/* Design previews */}
-        {(isBusy || rawUrl || noBgImageUrl) && (
-          <div className="flex flex-col gap-3">
+        {/* Design preview */}
+        {(isBusy || noBgImageUrl) && (
+          <div className="flex flex-col gap-2">
             <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
               Current Design
             </p>
-
-            {/* Original — always shown once it exists */}
-            {rawUrl && (
-              <div className="flex flex-col gap-1">
-                <p className="text-xs text-gray-600">Original</p>
-                <div className="rounded-lg overflow-hidden border border-gray-700 bg-gray-900 aspect-square">
-                  <img src={rawUrl} alt="Original" className="w-full h-full object-contain" />
+            <div className="relative rounded-xl overflow-hidden border border-gray-700 bg-gray-900 aspect-square">
+              {noBgImageUrl && (
+                <img src={noBgImageUrl} alt="Design" className="w-full h-full object-contain" />
+              )}
+              {isBusy && (
+                <div className={`absolute inset-0 flex flex-col items-center justify-center gap-3 ${noBgImageUrl ? "bg-gray-900/75" : "bg-gray-900"}`}>
+                  <div className="animate-spin w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full" />
+                  <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[activeOp]}</p>
                 </div>
-                {!isBusy && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => loadDesignImage(rawUrl)}
-                  >
-                    Use Original →
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* Processed — shows spinner while pipeline runs, image when done */}
-            {(isPostProcessing || noBgImageUrl) && (
-              <div className="flex flex-col gap-1">
-                <p className="text-xs text-gray-600">
-                  {activeOp === "removing-bg" ? "Removing background..." : activeOp === "vectorizing" ? "Vectorizing..." : "Processed (SVG)"}
-                </p>
-                <div className="relative rounded-lg overflow-hidden border border-gray-700 bg-gray-900 aspect-square">
-                  {noBgImageUrl && (
-                    <img src={noBgImageUrl} alt="Processed" className="w-full h-full object-contain" />
-                  )}
-                  {isPostProcessing && (
-                    <div className={`absolute inset-0 flex flex-col items-center justify-center gap-3 ${noBgImageUrl ? "bg-gray-900/75" : "bg-gray-900"}`}>
-                      <div className="animate-spin w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full" />
-                      <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[activeOp]}</p>
-                    </div>
-                  )}
-                </div>
-                {!isBusy && noBgImageUrl && (
-                  <Button size="sm" className="w-full" onClick={() => loadDesignImage(noBgImageUrl)}>
-                    Use Processed →
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* Generating / uploading full spinner (no image yet) */}
-            {(activeOp === "generating" || activeOp === "uploading") && !rawUrl && (
-              <div className="rounded-lg overflow-hidden border border-gray-700 bg-gray-900 aspect-square flex flex-col items-center justify-center gap-3">
-                <div className="animate-spin w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full" />
-                <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[activeOp]}</p>
-              </div>
+              )}
+            </div>
+            {!isBusy && noBgImageUrl && (
+              <Button size="sm" className="w-full" onClick={() => loadDesignImage(noBgImageUrl)}>
+                Place on Mockup →
+              </Button>
             )}
           </div>
         )}
@@ -353,7 +313,7 @@ export function DesignStudio() {
 
         {!hasDesign && isReady && (
           <p className="text-sm text-gray-600 text-center">
-            Generate or upload a design, then click "Use Original" or "Use Processed" to place it
+            Generate or upload a design, then click "Place on Mockup"
           </p>
         )}
 
