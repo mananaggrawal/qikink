@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Prompt is required" }, { status: 400 });
   }
 
-  const enhancedPrompt = `T-shirt screen print graphic. Placed on a solid plain white background — background must be a single flat color with zero texture, zero noise, zero gradients, so it can be cleanly removed. The design itself has hard, crisp edges with no feathering, no glow, no drop shadow, and no anti-aliased blending into the background. Vector illustration style, bold outlines, flat colors (max 6), high contrast. No photorealism. Design: ${prompt}`;
+  const enhancedPrompt = `Flat graphic artwork for screen printing. Solid plain white background — single flat color with zero texture, zero noise, zero gradients. Hard, crisp edges with no feathering, no glow, no drop shadow, no anti-aliased blending into the background. Vector illustration style, bold outlines, flat colors (max 6), high contrast. No photorealism. No clothing, no t-shirt, no apparel — only the isolated graphic design. Design: ${prompt}`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
