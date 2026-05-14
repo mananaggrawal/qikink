@@ -18,6 +18,7 @@ export function DesignStudio() {
   useDesignPersistence();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const refInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [activeOp, setActiveOp] = useState<ActiveOp>("idle");
@@ -28,11 +29,14 @@ export function DesignStudio() {
     noBgImageUrl,
     bgRemovedImageUrl,
     isGenerating,
+    referenceImageUrls,
     setGenerating,
     setGeneratedImage,
     setNoBgImage,
     setBgRemovedImage,
     addPastDesign,
+    addReferenceImage,
+    removeReferenceImage,
     setStep,
     setDesignUrl,
     setMockupUrl,
@@ -79,6 +83,32 @@ export function DesignStudio() {
 
   // ─── Actions ─────────────────────────────────────────────────────────────
 
+  const handleReferenceUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || referenceImageUrls.length >= 3) return;
+      e.target.value = "";
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const dataUrl = ev.target?.result as string;
+        if (!dataUrl) return;
+        try {
+          const res = await fetch("/api/upload-design", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dataUrl, filename: `ref-${Date.now()}` }),
+          });
+          const data = await res.json();
+          if (data.url) addReferenceImage(data.url);
+        } catch {
+          // silently ignore reference upload errors
+        }
+      };
+      reader.readAsDataURL(file);
+    },
+    [referenceImageUrls.length, addReferenceImage]
+  );
+
   const generateImage = useCallback(async () => {
     if (!prompt.trim() || activeOp !== "idle") return;
     setActiveOp("generating");
@@ -90,7 +120,7 @@ export function DesignStudio() {
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, referenceImageUrls: referenceImageUrls.length > 0 ? referenceImageUrls : undefined }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -102,7 +132,7 @@ export function DesignStudio() {
       setGenerating(false);
       setActiveOp("idle");
     }
-  }, [prompt, activeOp, setGenerating, setGeneratedImage, setNoBgImage, setLocalPreviewUrl, setError, runPostProcessing]);
+  }, [prompt, referenceImageUrls, activeOp, setGenerating, setGeneratedImage, setNoBgImage, setLocalPreviewUrl, setError, runPostProcessing]);
 
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,6 +216,35 @@ export function DesignStudio() {
 
         <ColorSelector />
 
+        {/* Reference images */}
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">
+            Reference Images <span className="normal-case text-gray-600">(up to 3)</span>
+          </p>
+          <div className="flex gap-2">
+            {referenceImageUrls.map((url, i) => (
+              <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0">
+                <img src={url} alt={`Reference ${i + 1}`} className="w-full h-full object-cover" />
+                <button
+                  onClick={() => removeReferenceImage(i)}
+                  className="absolute top-0.5 right-0.5 w-4 h-4 bg-gray-900/80 rounded-full flex items-center justify-center text-gray-300 hover:text-white text-xs leading-none"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {referenceImageUrls.length < 3 && (
+              <button
+                onClick={() => refInputRef.current?.click()}
+                disabled={isBusy}
+                className="w-16 h-16 rounded-lg border border-dashed border-gray-600 flex items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-400 transition-colors flex-shrink-0 text-xl disabled:opacity-40"
+              >
+                +
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* AI prompt */}
         <div className="flex flex-col gap-2">
           <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">
@@ -225,6 +284,13 @@ export function DesignStudio() {
             accept="image/*"
             className="hidden"
             onChange={handleFileUpload}
+          />
+          <input
+            ref={refInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleReferenceUpload}
           />
           <Button
             variant="secondary"

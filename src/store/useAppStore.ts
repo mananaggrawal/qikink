@@ -11,6 +11,7 @@ interface AppState {
   noBgImageUrl: string | null;
   bgRemovedImageUrl: string | null; // clean PNG (no watermark) used as Qikink design_link
   pastDesigns: string[];
+  referenceImageUrls: string[];
   selectedProduct: Product;
   selectedSku: ProductSku;
   selectedPlacement: PlacementOption;
@@ -31,6 +32,8 @@ interface AppState {
   setBgRemovedImage: (url: string | null) => void;
   addPastDesign: (url: string) => void;
   setPastDesigns: (designs: string[]) => void;
+  addReferenceImage: (url: string) => void;
+  removeReferenceImage: (index: number) => void;
   setProduct: (p: Product) => void;
   setSku: (s: ProductSku) => void;
   setPlacement: (p: PlacementOption) => void;
@@ -58,6 +61,7 @@ export const useAppStore = create<AppState>((set) => ({
   noBgImageUrl: null,
   bgRemovedImageUrl: null,
   pastDesigns: [],
+  referenceImageUrls: [],
   selectedProduct: defaultProduct,
   selectedSku: defaultSku,
   selectedPlacement: defaultPlacement,
@@ -78,6 +82,8 @@ export const useAppStore = create<AppState>((set) => ({
   setBgRemovedImage: (url) => set({ bgRemovedImageUrl: url }),
   addPastDesign: (url) => set((s) => ({ pastDesigns: [url, ...s.pastDesigns].slice(0, 5) })),
   setPastDesigns: (designs) => set({ pastDesigns: designs }),
+  addReferenceImage: (url) => set((s) => ({ referenceImageUrls: [...s.referenceImageUrls, url].slice(0, 3) })),
+  removeReferenceImage: (index) => set((s) => ({ referenceImageUrls: s.referenceImageUrls.filter((_, i) => i !== index) })),
 
   setProduct: (p) =>
     set({
