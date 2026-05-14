@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.qikink.com" },
     ],
   },
-  serverExternalPackages: ["fabric"],
+  serverExternalPackages: ["fabric", "potrace", "jimp"],
 };
 
 export default nextConfig;

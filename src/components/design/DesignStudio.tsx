@@ -67,16 +67,15 @@ export function DesignStudio() {
     return data.url as string;
   }, []);
 
-  // Automatic pipeline: remove-bg → vectorize. Hard fails — no fallbacks.
+  // Pipeline: remove-bg → vectorize
   const runPostProcessing = useCallback(async (rawUrl: string) => {
     setActiveOp("removing-bg");
     const bgRemovedUrl = await apiPost("/api/remove-bg", { imageUrl: rawUrl });
-    setBgRemovedImage(bgRemovedUrl); // clean PNG — used as Qikink design_link
+    setBgRemovedImage(bgRemovedUrl);
 
     setActiveOp("vectorizing");
     const svgUrl = await apiPost("/api/vectorize", { imageUrl: bgRemovedUrl });
-
-    setNoBgImage(svgUrl); // SVG for display/canvas only
+    setNoBgImage(svgUrl);
     addPastDesign(svgUrl);
     setActiveOp("idle");
   }, [apiPost, setNoBgImage, setBgRemovedImage, addPastDesign]);
@@ -200,7 +199,7 @@ export function DesignStudio() {
     generating: "Generating with Imagen 4...",
     uploading: "Uploading...",
     "removing-bg": "Removing background...",
-    vectorizing: "Vectorizing to SVG...",
+    vectorizing: "Vectorizing...",
   };
 
   return (
