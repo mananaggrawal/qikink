@@ -16,9 +16,9 @@ An AI-powered custom merchandise store built with Next.js. Users describe a desi
 | UI | React 19, Tailwind CSS 4 |
 | State | Zustand |
 | Image generation | Google Imagen 4 (`@google/genai`) |
-| Background removal | Cloudinary (`e_background_removal`) |
-| Vectorization | Cloudinary (`e_vectorize`) |
-| Image hosting | Cloudinary |
+| Background removal | ImageKit (`e-bgremove` transformation) |
+| Vectorization | Potrace (on-server, free) |
+| Image hosting | ImageKit |
 | Mockup editor | Fabric.js |
 | Payments | Razorpay |
 | Fulfilment | Qikink print-on-demand API |
@@ -42,10 +42,10 @@ Create `.env.local` with the following keys:
 # Google Imagen
 GEMINI_API_KEY=
 
-# Cloudinary (image hosting)
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
+# ImageKit (image hosting + background removal)
+IMAGEKIT_PUBLIC_KEY=
+IMAGEKIT_PRIVATE_KEY=
+IMAGEKIT_URL_ENDPOINT=   # https://ik.imagekit.io/your_id
 
 # Qikink fulfilment
 QIKINK_API_URL=

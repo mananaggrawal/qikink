@@ -167,12 +167,10 @@ export function DesignStudio() {
     setIsExporting(true);
     try {
       const result = await exportCanvas();
-      // Qikink needs white-background PNG — apply b_white,f_png on the vectorized Cloudinary SVG
-      const rawDesignUrl = noBgImageUrl ?? bgRemovedImageUrl ?? generatedImageUrl;
-      const qikinkDesignUrl = rawDesignUrl?.includes("res.cloudinary.com")
-        ? rawDesignUrl
-            .replace("/upload/", "/upload/b_white,f_png,w_3000/")
-            .replace(/\.svg$/, ".png")
+      // Qikink needs a white-background PNG — append ImageKit bg+format transformation
+      const rawDesignUrl = bgRemovedImageUrl ?? generatedImageUrl;
+      const qikinkDesignUrl = rawDesignUrl?.includes("ik.imagekit.io")
+        ? rawDesignUrl + (rawDesignUrl.includes("?tr=") ? ",bg-FFFFFF,f-png,w-3000" : "?tr=bg-FFFFFF,f-png,w-3000")
         : rawDesignUrl;
 
       const mockupRes = await fetch("/api/upload-design", {

@@ -1,17 +1,17 @@
-import { v2 as cloudinary } from "cloudinary";
+import potrace from "potrace";
+import { imagekit } from "@/lib/imagekit";
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
-  api_key: process.env.CLOUDINARY_API_KEY!,
-  api_secret: process.env.CLOUDINARY_API_SECRET!,
-});
-
-function extractPublicId(cloudinaryUrl: string): string {
-  const uploadIndex = cloudinaryUrl.indexOf("/upload/");
-  if (uploadIndex === -1) throw new Error("Not a valid Cloudinary URL");
-  const afterUpload = cloudinaryUrl.slice(uploadIndex + "/upload/".length);
-  const withoutVersion = afterUpload.replace(/^v\d+\//, "");
-  return withoutVersion.replace(/\.[^/.]+$/, "");
+function traceToSvg(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    potrace.posterize(
+      buffer,
+      { steps: 3, fillStrategy: "spread" as never },
+      (err: Error | null, svg: string) => {
+        if (err) reject(err);
+        else resolve(svg);
+      }
+    );
+  });
 }
 
 export async function POST(req: Request) {
@@ -21,13 +21,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    const publicId = extractPublicId(imageUrl);
-    const url = cloudinary.url(publicId, {
-      transformation: [{ effect: "vectorize" }],
-      format: "svg",
-      secure: true,
+    const imgRes = await fetch(imageUrl);
+    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+
+    const svg = await traceToSvg(imgBuffer);
+
+    const result = await imagekit.upload({
+      file: Buffer.from(svg).toString("base64"),
+      fileName: `vectorized-${Date.now()}.svg`,
+      folder: "/qikink-vectorized",
+      useUniqueFileName: true,
     });
-    return Response.json({ url });
+
+    return Response.json({ url: result.url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Vectorization failed";
     console.error("[vectorize]", msg);

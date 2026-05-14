@@ -1,11 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { v2 as cloudinary } from "cloudinary";
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
-  api_key: process.env.CLOUDINARY_API_KEY!,
-  api_secret: process.env.CLOUDINARY_API_SECRET!,
-});
+import { imagekit } from "@/lib/imagekit";
 
 export async function POST(req: Request) {
   const { prompt, referenceImageUrls } = await req.json();
@@ -31,8 +25,7 @@ export async function POST(req: Request) {
         const res = await fetch(url);
         const buf = Buffer.from(await res.arrayBuffer());
         const contentType = res.headers.get("content-type") ?? "image/png";
-        const mimeType = contentType.split(";")[0].trim();
-        parts.push({ inlineData: { mimeType, data: buf.toString("base64") } });
+        parts.push({ inlineData: { mimeType: contentType.split(";")[0].trim(), data: buf.toString("base64") } });
       }
 
       const response = await ai.models.generateContent({
@@ -50,23 +43,21 @@ export async function POST(req: Request) {
       const response = await ai.models.generateImages({
         model: "imagen-4.0-generate-001",
         prompt: enhancedPrompt,
-        config: {
-          numberOfImages: 1,
-          outputMimeType: "image/png",
-        },
+        config: { numberOfImages: 1, outputMimeType: "image/png" },
       });
-
       const bytes = response.generatedImages?.[0]?.image?.imageBytes;
       if (!bytes) throw new Error("No image returned from Imagen");
       imageBytes = bytes;
     }
 
-    const result = await cloudinary.uploader.upload(`data:image/png;base64,${imageBytes}`, {
-      folder: "qikink-generated",
-      resource_type: "image",
+    const result = await imagekit.upload({
+      file: imageBytes,
+      fileName: `generated-${Date.now()}.png`,
+      folder: "/qikink-generated",
+      useUniqueFileName: true,
     });
 
-    return Response.json({ imageUrl: result.secure_url });
+    return Response.json({ imageUrl: result.url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Image generation failed";
     return Response.json({ error: msg }, { status: 500 });

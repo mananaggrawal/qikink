@@ -1,10 +1,4 @@
-import { v2 as cloudinary } from "cloudinary";
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
-  api_key: process.env.CLOUDINARY_API_KEY!,
-  api_secret: process.env.CLOUDINARY_API_SECRET!,
-});
+import { imagekit } from "@/lib/imagekit";
 
 export async function POST(req: Request) {
   const { dataUrl, filename } = await req.json();
@@ -14,13 +8,14 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await cloudinary.uploader.upload(dataUrl, {
-      folder: "qikink-designs",
-      public_id: filename ?? undefined,
-      overwrite: false,
+    const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+    const result = await imagekit.upload({
+      file: base64,
+      fileName: filename ?? `design-${Date.now()}.png`,
+      folder: "/qikink-designs",
+      useUniqueFileName: true,
     });
-
-    return Response.json({ url: result.secure_url });
+    return Response.json({ url: result.url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Upload failed";
     return Response.json({ error: msg }, { status: 500 });
