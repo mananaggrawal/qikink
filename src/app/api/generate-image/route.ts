@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     }
 
     const result = await imagekit.upload({
-      file: imageBytes,
+      file: Buffer.from(imageBytes, "base64"),
       fileName: `generated-${Date.now()}.png`,
       folder: "/qikink-generated",
       useUniqueFileName: true,

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     const svg = await traceToSvg(imgBuffer);
 
     const result = await imagekit.upload({
-      file: Buffer.from(svg).toString("base64"),
+      file: Buffer.from(svg, "utf8"),
       fileName: `vectorized-${Date.now()}.svg`,
       folder: "/qikink-vectorized",
       useUniqueFileName: true,

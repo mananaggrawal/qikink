@@ -8,9 +8,10 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Convert data URL to Buffer — ImageKit requires Buffer or full data URI
     const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
     const result = await imagekit.upload({
-      file: base64,
+      file: Buffer.from(base64, "base64"),
       fileName: filename ?? `design-${Date.now()}.png`,
       folder: "/qikink-designs",
       useUniqueFileName: true,
