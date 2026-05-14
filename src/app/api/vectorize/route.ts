@@ -1,5 +1,5 @@
 import potrace from "potrace";
-import { imagekit } from "@/lib/imagekit";
+import { uploadToImageKit } from "@/lib/imagekit";
 
 function traceToSvg(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -26,14 +26,14 @@ export async function POST(req: Request) {
 
     const svg = await traceToSvg(imgBuffer);
 
-    const result = await imagekit.upload({
-      file: Buffer.from(svg, "utf8"),
-      fileName: `vectorized-${Date.now()}.svg`,
-      folder: "/qikink-vectorized",
-      useUniqueFileName: true,
-    });
+    const svgBase64 = Buffer.from(svg, "utf8").toString("base64");
+    const url = await uploadToImageKit(
+      svgBase64,
+      `vectorized-${Date.now()}.svg`,
+      "/qikink-vectorized"
+    );
 
-    return Response.json({ url: result.url });
+    return Response.json({ url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Vectorization failed";
     console.error("[vectorize]", msg);

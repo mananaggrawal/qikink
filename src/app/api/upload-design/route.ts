@@ -1,4 +1,4 @@
-import { imagekit } from "@/lib/imagekit";
+import { uploadToImageKit } from "@/lib/imagekit";
 
 export async function POST(req: Request) {
   const { dataUrl, filename } = await req.json();
@@ -8,15 +8,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Convert data URL to Buffer — ImageKit requires Buffer or full data URI
     const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
-    const result = await imagekit.upload({
-      file: Buffer.from(base64, "base64"),
-      fileName: filename ?? `design-${Date.now()}.png`,
-      folder: "/qikink-designs",
-      useUniqueFileName: true,
-    });
-    return Response.json({ url: result.url });
+    const url = await uploadToImageKit(
+      base64,
+      filename ?? `design-${Date.now()}.png`,
+      "/qikink-designs"
+    );
+    return Response.json({ url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Upload failed";
     return Response.json({ error: msg }, { status: 500 });

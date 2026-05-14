@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { imagekit } from "@/lib/imagekit";
+import { uploadToImageKit } from "@/lib/imagekit";
 
 export async function POST(req: Request) {
   const { prompt, referenceImageUrls } = await req.json();
@@ -50,14 +50,14 @@ export async function POST(req: Request) {
       imageBytes = bytes;
     }
 
-    const result = await imagekit.upload({
-      file: Buffer.from(imageBytes, "base64"),
-      fileName: `generated-${Date.now()}.png`,
-      folder: "/qikink-generated",
-      useUniqueFileName: true,
-    });
+    // imageBytes is raw base64 — ImageKit REST API accepts it directly
+    const imageUrl = await uploadToImageKit(
+      imageBytes,
+      `generated-${Date.now()}.png`,
+      "/qikink-generated"
+    );
 
-    return Response.json({ imageUrl: result.url });
+    return Response.json({ imageUrl });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Image generation failed";
     return Response.json({ error: msg }, { status: 500 });

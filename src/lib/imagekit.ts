@@ -1,11 +1,32 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ImageKitLib = require("imagekit");
-// imagekit is a CJS package — the constructor may be on .default or the export itself
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ImageKitClass = (ImageKitLib.default ?? ImageKitLib) as new (opts: any) => InstanceType<typeof import("imagekit")>;
+const UPLOAD_URL = "https://upload.imagekit.io/api/v1/files/upload";
 
-export const imagekit = new ImageKitClass({
-  publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
-  privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
-  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT!,
-});
+function authHeader() {
+  const key = process.env.IMAGEKIT_PRIVATE_KEY!;
+  return "Basic " + Buffer.from(key + ":").toString("base64");
+}
+
+export async function uploadToImageKit(
+  fileBase64: string,
+  fileName: string,
+  folder: string
+): Promise<string> {
+  const form = new FormData();
+  form.append("file", fileBase64);
+  form.append("fileName", fileName);
+  form.append("folder", folder);
+  form.append("useUniqueFileName", "true");
+
+  const res = await fetch(UPLOAD_URL, {
+    method: "POST",
+    headers: { Authorization: authHeader() },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`ImageKit upload ${res.status}: ${body}`);
+  }
+
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
