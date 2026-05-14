@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Prompt is required" }, { status: 400 });
   }
 
-  const enhancedPrompt = `Flat graphic artwork for screen printing. Solid plain white background — single flat color with zero texture, zero noise, zero gradients. Hard, crisp edges with no feathering, no glow, no drop shadow, no anti-aliased blending into the background. Vector illustration style, bold outlines, flat colors (max 6), high contrast. No photorealism. No clothing, no t-shirt, no apparel — only the isolated graphic design. Design: ${prompt}`;
+  const enhancedPrompt = `A sticker graphic on a pure white background. Bold vector illustration style, flat colors (max 6), solid black outlines, high contrast. Pure white background only — absolutely no clothing, no t-shirt, no garment, no fabric, no apparel of any kind. Just the isolated graphic centered on white. Design: ${prompt}`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
