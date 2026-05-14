@@ -43,3 +43,6 @@ next-env.d.ts
 # Local uploads (ephemeral, not committed)
 public/uploads/*
 !public/uploads/.gitkeep
+
+# Claude Code local settings (may contain personal tokens)
+.claude/settings.local.json
