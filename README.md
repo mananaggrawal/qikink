@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Merch Studio
 
-## Getting Started
+An AI-powered custom merchandise store built with Next.js. Users describe a design in text, an AI generates the artwork, and they can order it printed on a t-shirt — fulfilled end-to-end by Qikink.
 
-First, run the development server:
+## How it works
+
+1. **Design** — Describe your idea. Google Imagen 4 generates artwork, background removal cleans it up, and Vectorizer.AI traces it to a sharp vector for print.
+2. **Preview** — A layered mockup editor (Fabric.js) lets you position the design on t-shirt mockup images.
+3. **Checkout** — Razorpay processes payment, then the order is submitted directly to Qikink's print-on-demand API for fulfilment.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| UI | React 19, Tailwind CSS 4 |
+| State | Zustand |
+| Image generation | Google Imagen 4 (`@google/genai`) |
+| Background removal | Remove.bg API |
+| Vectorization | Vectorizer.AI |
+| Image hosting | Cloudinary |
+| Mockup editor | Fabric.js |
+| Payments | Razorpay |
+| Fulfilment | Qikink print-on-demand API |
+| Hosting | Railway |
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # fill in your keys (see below)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `.env.local` with the following keys:
 
-## Learn More
+```env
+# Google Imagen
+GEMINI_API_KEY=
 
-To learn more about Next.js, take a look at the following resources:
+# Cloudinary (image hosting)
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Remove.bg
+REMOVE_BG_API_KEY=
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Vectorizer.AI
+VECTORIZER_AI_API_ID=
+VECTORIZER_AI_API_SECRET=
 
-## Deploy on Vercel
+# Qikink fulfilment
+QIKINK_API_URL=
+QIKINK_CLIENT_ID=
+QIKINK_CLIENT_SECRET=
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Razorpay payments
+RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project structure
+
+```
+src/
+  app/
+    api/
+      generate-image/   # Imagen 4 image generation
+      remove-bg/        # Background removal
+      vectorize/        # SVG vectorization
+      upload-design/    # Cloudinary upload
+      qikink/           # Qikink order + auth
+      razorpay/         # Payment order + verification
+  components/
+    design/             # AI image generation + gallery
+    editor/             # Fabric.js mockup editor
+    order/              # Checkout form + summary
+    ui/                 # Shared UI components
+  hooks/                # useMockupEditor, useQikinkOrder, useRazorpay
+  store/                # Zustand app state
+  lib/                  # Qikink catalog, utilities
+```
+
+## Deployment
+
+The app is deployed on [Railway](https://railway.app). Pushes to `main` trigger automatic redeployment.
+
+Live URL: `https://zestful-radiance-production-b49e.up.railway.app`
