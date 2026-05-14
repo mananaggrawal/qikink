@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 
 const CANVAS_SIZE = 560;
 
-type ActiveOp = "idle" | "generating" | "uploading" | "removing-bg" | "vectorizing";
+type ActiveOp = "idle" | "generating" | "uploading" | "removing-bg";
 
 export function DesignStudio() {
   useDesignPersistence();
@@ -72,11 +72,8 @@ export function DesignStudio() {
     setActiveOp("removing-bg");
     const bgRemovedUrl = await apiPost("/api/remove-bg", { imageUrl: rawUrl });
     setBgRemovedImage(bgRemovedUrl);
-
-    setActiveOp("vectorizing");
-    const svgUrl = await apiPost("/api/vectorize", { imageUrl: bgRemovedUrl });
-    setNoBgImage(svgUrl);
-    addPastDesign(svgUrl);
+    setNoBgImage(bgRemovedUrl);
+    addPastDesign(bgRemovedUrl);
     setActiveOp("idle");
   }, [apiPost, setNoBgImage, setBgRemovedImage, addPastDesign]);
 
@@ -199,7 +196,6 @@ export function DesignStudio() {
     generating: "Generating with Imagen 4...",
     uploading: "Uploading...",
     "removing-bg": "Removing background...",
-    vectorizing: "Vectorizing...",
   };
 
   return (
