@@ -16,8 +16,8 @@ An AI-powered custom merchandise store built with Next.js. Users describe a desi
 | UI | React 19, Tailwind CSS 4 |
 | State | Zustand |
 | Image generation | Google Imagen 4 (`@google/genai`) |
-| Background removal | Remove.bg API |
-| Vectorization | Vectorizer.AI |
+| Background removal | Cloudinary (`e_background_removal`) |
+| Vectorization | Cloudinary (`e_vectorize`) |
 | Image hosting | Cloudinary |
 | Mockup editor | Fabric.js |
 | Payments | Razorpay |
@@ -46,13 +46,6 @@ GEMINI_API_KEY=
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
-
-# Remove.bg
-REMOVE_BG_API_KEY=
-
-# Vectorizer.AI
-VECTORIZER_AI_API_ID=
-VECTORIZER_AI_API_SECRET=
 
 # Qikink fulfilment
 QIKINK_API_URL=
