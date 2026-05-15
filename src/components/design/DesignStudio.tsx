@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 
 const CANVAS_SIZE = 560;
 
-type ActiveOp = "idle" | "generating" | "uploading" | "removing-bg";
+type ActiveOp = "idle" | "generating" | "uploading" | "removing-bg" | "vectorizing";
 
 export function DesignStudio() {
   useDesignPersistence();
@@ -67,15 +67,18 @@ export function DesignStudio() {
     return data.url as string;
   }, []);
 
-  // Pipeline: remove-bg → auto-place on canvas
+  // Pipeline: remove-bg → vectorize → auto-place on canvas
   const runPostProcessing = useCallback(async (rawUrl: string) => {
     setActiveOp("removing-bg");
     const bgRemovedUrl = await apiPost("/api/remove-bg", { imageUrl: rawUrl });
     setBgRemovedImage(bgRemovedUrl);
-    setNoBgImage(bgRemovedUrl);
-    addPastDesign(bgRemovedUrl);
+
+    setActiveOp("vectorizing" as ActiveOp);
+    const svgUrl = await apiPost("/api/vectorize", { imageUrl: bgRemovedUrl });
+    setNoBgImage(svgUrl);
+    addPastDesign(svgUrl);
     setActiveOp("idle");
-    await loadDesignImage(bgRemovedUrl);
+    await loadDesignImage(svgUrl);
   }, [apiPost, setNoBgImage, setBgRemovedImage, addPastDesign, loadDesignImage]);
 
   // ─── Actions ─────────────────────────────────────────────────────────────
@@ -164,9 +167,12 @@ export function DesignStudio() {
     setIsExporting(true);
     try {
       const result = await exportCanvas();
-      // Send the original full-res generated image to Qikink (1024px, white bg from prompt).
-      // The bg-removed version is lower-res (remove.bg free = 500px) so prefer the original.
-      const qikinkDesignUrl = generatedImageUrl ?? bgRemovedImageUrl;
+      // For Qikink: render the vectorized SVG as a 4000px white-bg PNG — true high-DPI print file.
+      // Fall back to original generated image if SVG isn't ready.
+      const svgBase = noBgImageUrl?.includes(".svg") ? noBgImageUrl : null;
+      const qikinkDesignUrl = svgBase
+        ? svgBase + (svgBase.includes("?") ? ",f-png,bg-FFFFFF,w-4000" : "?tr=f-png,bg-FFFFFF,w-4000")
+        : generatedImageUrl ?? bgRemovedImageUrl;
 
       const mockupRes = await fetch("/api/upload-design", {
         method: "POST",
@@ -195,6 +201,7 @@ export function DesignStudio() {
     generating: "Generating with Imagen 4...",
     uploading: "Uploading...",
     "removing-bg": "Removing background...",
+    vectorizing: "Vectorizing edges...",
   };
 
   return (
