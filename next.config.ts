@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.qikink.com" },
     ],
   },
-  serverExternalPackages: ["fabric"],
+  serverExternalPackages: ["fabric", "@imgly/background-removal-node", "onnxruntime-node"],
 };
 
 export default nextConfig;
