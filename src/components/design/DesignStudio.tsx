@@ -28,12 +28,14 @@ export function DesignStudio() {
     generatedImageUrl,
     noBgImageUrl,
     bgRemovedImageUrl,
+    vectorizedImageUrl,
     isGenerating,
     referenceImageUrls,
     setGenerating,
     setGeneratedImage,
     setNoBgImage,
     setBgRemovedImage,
+    setVectorizedImage,
     addPastDesign,
     addReferenceImage,
     removeReferenceImage,
@@ -67,19 +69,27 @@ export function DesignStudio() {
     return data.url as string;
   }, []);
 
-  // Pipeline: remove-bg → vectorize → auto-place on canvas
+  // Pipeline: remove-bg → place on canvas → vectorize in background (for print only)
   const runPostProcessing = useCallback(async (rawUrl: string) => {
     setActiveOp("removing-bg");
     const bgRemovedUrl = await apiPost("/api/remove-bg", { imageUrl: rawUrl });
     setBgRemovedImage(bgRemovedUrl);
-
-    setActiveOp("vectorizing" as ActiveOp);
-    const svgUrl = await apiPost("/api/vectorize", { imageUrl: bgRemovedUrl });
-    setNoBgImage(svgUrl);
-    addPastDesign(svgUrl);
+    // Transparent PNG → canvas display (no white bg issue)
+    setNoBgImage(bgRemovedUrl);
+    addPastDesign(bgRemovedUrl);
     setActiveOp("idle");
-    await loadDesignImage(svgUrl);
-  }, [apiPost, setNoBgImage, setBgRemovedImage, addPastDesign, loadDesignImage]);
+    await loadDesignImage(bgRemovedUrl);
+
+    // Vectorize after placement — SVG stored separately, used only for Qikink print
+    setActiveOp("vectorizing");
+    try {
+      const svgUrl = await apiPost("/api/vectorize", { imageUrl: bgRemovedUrl });
+      setVectorizedImage(svgUrl);
+    } catch {
+      // Vectorize failure is non-fatal — canvas and bg-removed PNG still work
+    }
+    setActiveOp("idle");
+  }, [apiPost, setNoBgImage, setBgRemovedImage, setVectorizedImage, addPastDesign, loadDesignImage]);
 
   // ─── Actions ─────────────────────────────────────────────────────────────
 
@@ -167,11 +177,9 @@ export function DesignStudio() {
     setIsExporting(true);
     try {
       const result = await exportCanvas();
-      // For Qikink: render the vectorized SVG as a 4000px white-bg PNG — true high-DPI print file.
-      // Fall back to original generated image if SVG isn't ready.
-      const svgBase = noBgImageUrl?.includes(".svg") ? noBgImageUrl : null;
-      const qikinkDesignUrl = svgBase
-        ? svgBase + (svgBase.includes("?") ? ",f-png,bg-FFFFFF,w-4000" : "?tr=f-png,bg-FFFFFF,w-4000")
+      // Qikink print: SVG → 4000px white-bg PNG (high DPI). Fall back to original if not ready.
+      const qikinkDesignUrl = vectorizedImageUrl
+        ? vectorizedImageUrl + (vectorizedImageUrl.includes("?") ? ",f-png,bg-FFFFFF,w-4000" : "?tr=f-png,bg-FFFFFF,w-4000")
         : generatedImageUrl ?? bgRemovedImageUrl;
 
       const mockupRes = await fetch("/api/upload-design", {

@@ -9,7 +9,8 @@ interface AppState {
   isGenerating: boolean;
   generatedImageUrl: string | null;
   noBgImageUrl: string | null;
-  bgRemovedImageUrl: string | null; // clean PNG (no watermark) used as Qikink design_link
+  bgRemovedImageUrl: string | null;
+  vectorizedImageUrl: string | null; // SVG — used only for Qikink high-DPI print
   pastDesigns: string[];
   referenceImageUrls: string[];
   selectedProduct: Product;
@@ -30,6 +31,7 @@ interface AppState {
   setGeneratedImage: (url: string) => void;
   setNoBgImage: (url: string | null) => void;
   setBgRemovedImage: (url: string | null) => void;
+  setVectorizedImage: (url: string | null) => void;
   addPastDesign: (url: string) => void;
   setPastDesigns: (designs: string[]) => void;
   addReferenceImage: (url: string) => void;
@@ -60,6 +62,7 @@ export const useAppStore = create<AppState>((set) => ({
   generatedImageUrl: null,
   noBgImageUrl: null,
   bgRemovedImageUrl: null,
+  vectorizedImageUrl: null,
   pastDesigns: [],
   referenceImageUrls: [],
   selectedProduct: defaultProduct,
@@ -80,6 +83,7 @@ export const useAppStore = create<AppState>((set) => ({
   setGeneratedImage: (url) => set({ generatedImageUrl: url }),
   setNoBgImage: (url) => set({ noBgImageUrl: url }),
   setBgRemovedImage: (url) => set({ bgRemovedImageUrl: url }),
+  setVectorizedImage: (url) => set({ vectorizedImageUrl: url }),
   addPastDesign: (url) => set((s) => ({ pastDesigns: [url, ...s.pastDesigns].slice(0, 5) })),
   setPastDesigns: (designs) => set({ pastDesigns: designs }),
   addReferenceImage: (url) => set((s) => ({ referenceImageUrls: [...s.referenceImageUrls, url].slice(0, 3) })),
@@ -122,6 +126,7 @@ export const useAppStore = create<AppState>((set) => ({
       generatedImageUrl: null,
       noBgImageUrl: null,
       bgRemovedImageUrl: null,
+      vectorizedImageUrl: null,
       canvasDataUrl: null,
       designDataUrl: null,
       designUrl: null,

@@ -110,10 +110,7 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
         designRef.current = null;
       }
 
-      // Convert ImageKit SVGs to high-res PNG on-the-fly (Fabric can't render cross-origin SVG)
-      const loadUrl = url.includes("ik.imagekit.io") && url.includes(".svg")
-        ? url + (url.includes("?") ? ",f-png,w-2000" : "?tr=f-png,w-2000")
-        : url;
+      const loadUrl = url;
 
       try {
         const img = await FImg.fromURL(loadUrl, { crossOrigin: "anonymous" });
