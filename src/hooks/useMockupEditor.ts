@@ -201,7 +201,7 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
     const canvas = fabricRef.current!;
     const design = designRef.current;
 
-    const mockupDataUrl = canvas.toDataURL({ format: "png", multiplier: 2 });
+    const mockupDataUrl = canvas.toDataURL({ format: "png", multiplier: 3 });
 
     if (!design) {
       setCanvasDataUrl(mockupDataUrl);
@@ -210,7 +210,7 @@ export function useMockupEditor(canvasRef: React.RefObject<HTMLCanvasElement | n
       return { mockupDataUrl, designDataUrl: BLANK_DESIGN_DATA_URL };
     }
 
-    const designDataUrl = design.toDataURL({ format: "png", multiplier: 2 });
+    const designDataUrl = design.toDataURL({ format: "png", multiplier: 3 });
 
     // Calculate design dimensions in inches based on its size relative to the print area
     const printAreaWidthPx = selectedProduct.printAreaPercent.width * CANVAS_SIZE;

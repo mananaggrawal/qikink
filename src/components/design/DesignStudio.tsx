@@ -398,6 +398,21 @@ export function DesignStudio() {
               Proceed without Design →
             </Button>
           )}
+          {hasDesign && (
+            <Button
+              size="lg"
+              variant="secondary"
+              onClick={async () => {
+                const result = await exportCanvas();
+                const a = document.createElement("a");
+                a.href = result.mockupDataUrl;
+                a.download = `mockup-${Date.now()}.png`;
+                a.click();
+              }}
+            >
+              ↓ Download
+            </Button>
+          )}
         </div>
 
         <p className="text-xs text-gray-600 text-center max-w-md">

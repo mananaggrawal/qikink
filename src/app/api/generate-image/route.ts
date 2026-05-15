@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
   const hasReferences = Array.isArray(referenceImageUrls) && referenceImageUrls.length > 0;
 
-  const enhancedPrompt = `A sticker graphic on a pure white background. Bold vector illustration style, flat colors (max 6), solid black outlines, high contrast. Pure white background only — absolutely no clothing, no t-shirt, no garment, no fabric, no apparel of any kind. Just the isolated graphic centered on white.${hasReferences ? " Use the provided reference images for visual style and content inspiration." : ""} Design: ${prompt}`;
+  const enhancedPrompt = `T-shirt print graphic design. Subject: ${prompt}. Style: bold flat vector illustration, vivid solid colors (max 6), thick solid black outline around the entire subject. Background: perfectly flat solid white (#FFFFFF) — no gradients, no shadows, no glow, no texture, no noise. The subject must be clearly separated from the background with a hard crisp edge. Absolutely no clothing, no t-shirt, no garment shown — just the isolated graphic artwork centered on solid white.${hasReferences ? " Match the visual style of the provided reference images." : ""}`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });

@@ -7,18 +7,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Trigger ImageKit's bg removal transformation and download the result
-    const transformUrl = imageUrl.includes("?")
-      ? `${imageUrl}&tr=e-bgremove,f-png`
-      : `${imageUrl}?tr=e-bgremove,f-png`;
+    const form = new FormData();
+    form.append("image_url", imageUrl);
+    form.append("size", "auto");
+    form.append("type", "auto");
+    form.append("format", "png");
 
-    const res = await fetch(transformUrl);
-    if (!res.ok) throw new Error(`ImageKit bg removal failed: ${res.status}`);
+    const res = await fetch("https://api.remove.bg/v1.0/removebg", {
+      method: "POST",
+      headers: { "X-Api-Key": process.env.REMOVE_BG_API_KEY! },
+      body: form,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`remove.bg ${res.status}: ${errText}`);
+    }
 
     const buffer = Buffer.from(await res.arrayBuffer());
     const base64 = buffer.toString("base64");
-
-    // Re-upload so vectorize gets a fast static URL (not a lazy transformation)
     const url = await uploadToImageKit(base64, `nobg-${Date.now()}.png`, "/qikink-nobg");
     return Response.json({ url });
   } catch (err) {
