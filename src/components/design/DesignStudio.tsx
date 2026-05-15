@@ -218,7 +218,7 @@ export function DesignStudio() {
           <div className="flex gap-2">
             {referenceImageUrls.map((url, i) => (
               <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0">
-                <img src={url} alt={`Reference ${i + 1}`} className="w-full h-full object-cover" />
+                <img src={url} alt={`Reference ${i + 1}`} crossOrigin="anonymous" className="w-full h-full object-cover" />
                 <button
                   onClick={() => removeReferenceImage(i)}
                   className="absolute top-0.5 right-0.5 w-4 h-4 bg-gray-900/80 rounded-full flex items-center justify-center text-gray-300 hover:text-white text-xs leading-none"
@@ -306,7 +306,7 @@ export function DesignStudio() {
             <div className="relative rounded-xl overflow-hidden border border-gray-700 aspect-square"
               style={{ background: "repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0 / 16px 16px" }}>
               {noBgImageUrl && (
-                <img src={noBgImageUrl} alt="Design" className="w-full h-full object-contain" />
+                <img src={noBgImageUrl} alt="Design" crossOrigin="anonymous" className="w-full h-full object-contain" />
               )}
               {isBusy && (
                 <div className={`absolute inset-0 flex flex-col items-center justify-center gap-3 ${noBgImageUrl ? "bg-white/75" : "bg-gray-900"}`}>

@@ -33,6 +33,7 @@ export function ImageGallery({ onSelect, selectedUrl }: Props) {
           <img
             src={url}
             alt="Generated design"
+            crossOrigin="anonymous"
             className="w-full h-full object-cover"
             onError={(e) => { (e.currentTarget.closest("button") as HTMLElement).style.display = "none"; }}
           />
