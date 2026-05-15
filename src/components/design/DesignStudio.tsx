@@ -164,11 +164,9 @@ export function DesignStudio() {
     setIsExporting(true);
     try {
       const result = await exportCanvas();
-      // Qikink needs a white-background PNG — append ImageKit bg+format transformation
-      const rawDesignUrl = bgRemovedImageUrl ?? generatedImageUrl;
-      const qikinkDesignUrl = rawDesignUrl?.includes("ik.imagekit.io")
-        ? rawDesignUrl + (rawDesignUrl.includes("?tr=") ? ",bg-FFFFFF,f-png,w-3000" : "?tr=bg-FFFFFF,f-png,w-3000")
-        : rawDesignUrl;
+      // Send the original full-res generated image to Qikink (1024px, white bg from prompt).
+      // The bg-removed version is lower-res (remove.bg free = 500px) so prefer the original.
+      const qikinkDesignUrl = generatedImageUrl ?? bgRemovedImageUrl;
 
       const mockupRes = await fetch("/api/upload-design", {
         method: "POST",
