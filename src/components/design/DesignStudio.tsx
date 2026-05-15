@@ -67,7 +67,7 @@ export function DesignStudio() {
     return data.url as string;
   }, []);
 
-  // Pipeline: remove-bg → vectorize
+  // Pipeline: remove-bg → auto-place on canvas
   const runPostProcessing = useCallback(async (rawUrl: string) => {
     setActiveOp("removing-bg");
     const bgRemovedUrl = await apiPost("/api/remove-bg", { imageUrl: rawUrl });
@@ -75,7 +75,8 @@ export function DesignStudio() {
     setNoBgImage(bgRemovedUrl);
     addPastDesign(bgRemovedUrl);
     setActiveOp("idle");
-  }, [apiPost, setNoBgImage, setBgRemovedImage, addPastDesign]);
+    await loadDesignImage(bgRemovedUrl);
+  }, [apiPost, setNoBgImage, setBgRemovedImage, addPastDesign, loadDesignImage]);
 
   // ─── Actions ─────────────────────────────────────────────────────────────
 
@@ -302,12 +303,13 @@ export function DesignStudio() {
             <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
               Current Design
             </p>
-            <div className="relative rounded-xl overflow-hidden border border-gray-700 bg-gray-900 aspect-square">
+            <div className="relative rounded-xl overflow-hidden border border-gray-700 aspect-square"
+              style={{ background: "repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0 / 16px 16px" }}>
               {noBgImageUrl && (
                 <img src={noBgImageUrl} alt="Design" className="w-full h-full object-contain" />
               )}
               {isBusy && (
-                <div className={`absolute inset-0 flex flex-col items-center justify-center gap-3 ${noBgImageUrl ? "bg-gray-900/75" : "bg-gray-900"}`}>
+                <div className={`absolute inset-0 flex flex-col items-center justify-center gap-3 ${noBgImageUrl ? "bg-white/75" : "bg-gray-900"}`}>
                   <div className="animate-spin w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full" />
                   <p className="text-xs text-gray-300 text-center px-4">{overlayLabel[activeOp]}</p>
                 </div>

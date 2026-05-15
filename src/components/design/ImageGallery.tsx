@@ -34,6 +34,7 @@ export function ImageGallery({ onSelect, selectedUrl }: Props) {
             src={url}
             alt="Generated design"
             className="w-full h-full object-cover"
+            onError={(e) => { (e.currentTarget.closest("button") as HTMLElement).style.display = "none"; }}
           />
         </button>
       ))}
