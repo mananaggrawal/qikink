@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   try {
     const form = new FormData();
     form.append("image_url", imageUrl);
-    form.append("size", "regular");
+    form.append("size", "hd");
     form.append("type", "auto");
     form.append("format", "png");
 

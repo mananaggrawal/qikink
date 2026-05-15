@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
+        model: "gemini-3-pro-image-preview",
         contents: [{ role: "user", parts }],
         config: { responseModalities: ["IMAGE"] },
       });
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       imageBytes = imagePart.inlineData.data;
     } else {
       const response = await ai.models.generateImages({
-        model: "imagen-4.0-generate-001",
+        model: "imagen-4.0-ultra-generate-001",
         prompt: enhancedPrompt,
         config: { numberOfImages: 1, outputMimeType: "image/png" },
       });
